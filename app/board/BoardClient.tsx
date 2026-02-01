@@ -16,6 +16,8 @@ import { useGameStore } from "@/stores/gameStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
 import { OmikujiModal } from "@/components/game/OmikujiModal";
+import { GachaModal } from "@/components/game/GachaModal";
+import { RankingModal } from "@/components/game/RankingModal";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import { BgmPlayer } from "@/components/ui/BgmPlayer";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -48,6 +50,8 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showDashboardModal, setShowDashboardModal] = useState(false);
     const [showShopModal, setShowShopModal] = useState(false);
     const [showHorseRaceModal, setShowHorseRaceModal] = useState(false);
+    const [showGachaModal, setShowGachaModal] = useState(false);
+    const [showRankingModal, setShowRankingModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // オートクリッカー等のタイマー
@@ -93,7 +97,12 @@ export function BoardClient({ user }: BoardClientProps) {
                         </button>
 
                         {/* ゲームステータスバー */}
-                        <GameStatusBar />
+                        <GameStatusBar
+                            onOpenShop={() => setShowShopModal(true)}
+                            onOpenRanking={() => setShowRankingModal(true)}
+                            onOpenKeiba={() => setShowHorseRaceModal(true)}
+                            onOpenGacha={() => setShowGachaModal(true)}
+                        />
                     </div>
 
                     {/* クイックアクション */}
@@ -343,6 +352,20 @@ export function BoardClient({ user }: BoardClientProps) {
             <HorseRaceModal
                 isOpen={showHorseRaceModal}
                 onClose={() => setShowHorseRaceModal(false)}
+            />
+
+            {/* ガチャモーダル */}
+            <GachaModal
+                isOpen={showGachaModal}
+                userId={user.id}
+                onClose={() => setShowGachaModal(false)}
+            />
+
+            {/* ランキングモーダル */}
+            <RankingModal
+                isOpen={showRankingModal}
+                currentUserId={user.id}
+                onClose={() => setShowRankingModal(false)}
             />
         </div>
     );

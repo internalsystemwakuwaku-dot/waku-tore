@@ -5,11 +5,14 @@ import { getXpRanking, getMoneyRanking } from "@/app/actions/game";
 import type { RankingEntry } from "@/types/game";
 
 interface RankingModalProps {
+    isOpen: boolean;
     currentUserId: string;
     onClose: () => void;
 }
 
-export function RankingModal({ currentUserId, onClose }: RankingModalProps) {
+export function RankingModal({ isOpen, currentUserId, onClose }: RankingModalProps) {
+    if (!isOpen) return null;
+
     const [activeTab, setActiveTab] = useState<"xp" | "money">("xp");
     const [xpRanking, setXpRanking] = useState<RankingEntry[]>([]);
     const [moneyRanking, setMoneyRanking] = useState<RankingEntry[]>([]);
@@ -76,8 +79,8 @@ export function RankingModal({ currentUserId, onClose }: RankingModalProps) {
                     <button
                         onClick={() => setActiveTab("xp")}
                         className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === "xp"
-                                ? "text-indigo-400 border-b-2 border-indigo-400"
-                                : "text-white/60 hover:text-white"
+                            ? "text-indigo-400 border-b-2 border-indigo-400"
+                            : "text-white/60 hover:text-white"
                             }`}
                     >
                         ⭐ XPランキング
@@ -85,8 +88,8 @@ export function RankingModal({ currentUserId, onClose }: RankingModalProps) {
                     <button
                         onClick={() => setActiveTab("money")}
                         className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === "money"
-                                ? "text-yellow-400 border-b-2 border-yellow-400"
-                                : "text-white/60 hover:text-white"
+                            ? "text-yellow-400 border-b-2 border-yellow-400"
+                            : "text-white/60 hover:text-white"
                             }`}
                     >
                         💰 所持金ランキング
@@ -112,8 +115,8 @@ export function RankingModal({ currentUserId, onClose }: RankingModalProps) {
                                     className={`rounded-lg p-3 border flex items-center gap-3 transition-all ${getRankStyle(
                                         entry.rank
                                     )} ${entry.userId === currentUserId
-                                            ? "ring-2 ring-blue-400"
-                                            : ""
+                                        ? "ring-2 ring-blue-400"
+                                        : ""
                                         }`}
                                 >
                                     {/* ランク */}

@@ -7,11 +7,14 @@ import { DEFAULT_GACHA_POOL, RARITY_CONFIG } from "@/types/keiba";
 import type { GachaResult } from "@/types/keiba";
 
 interface GachaModalProps {
+    isOpen: boolean;
     userId: string;
     onClose: () => void;
 }
 
-export function GachaModal({ userId, onClose }: GachaModalProps) {
+export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
+    if (!isOpen) return null;
+
     const { data, setData } = useGameStore();
     const [results, setResults] = useState<GachaResult[]>([]);
     const [showResult, setShowResult] = useState(false);
