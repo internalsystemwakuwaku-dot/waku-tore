@@ -11,6 +11,7 @@ import { LevelUpModal } from "@/components/game/LevelUpModal";
 import { OmikujiModal } from "@/components/game/OmikujiModal";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import { BgmPlayer } from "@/components/ui/BgmPlayer";
+import { ToastContainer } from "@/components/ui/Toast";
 import Link from "next/link";
 
 interface User {
@@ -248,6 +249,9 @@ export function BoardClient({ user }: BoardClientProps) {
 
             {/* BGMプレイヤー */}
             <BgmPlayer />
+
+            {/* トースト通知 */}
+            <ToastContainer />
         </div>
     );
 }
