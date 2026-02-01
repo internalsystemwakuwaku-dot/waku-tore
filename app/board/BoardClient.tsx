@@ -5,6 +5,8 @@ import { BoardView } from "@/components/board/BoardView";
 import { FilterBar, QuickFilterButtons } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
 import { SettingsModal } from "@/components/modals/SettingsModal";
+import { BulkAssignModal } from "@/components/modals/BulkAssignModal";
+import { BulkMoveModal } from "@/components/modals/BulkMoveModal";
 import { useBoardStore } from "@/stores/boardStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
@@ -12,6 +14,7 @@ import { OmikujiModal } from "@/components/game/OmikujiModal";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import { BgmPlayer } from "@/components/ui/BgmPlayer";
 import { ToastContainer } from "@/components/ui/Toast";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import Link from "next/link";
 
 interface User {
@@ -33,6 +36,8 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showMemoModal, setShowMemoModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showOmikujiModal, setShowOmikujiModal] = useState(false);
+    const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+    const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
@@ -252,6 +257,24 @@ export function BoardClient({ user }: BoardClientProps) {
 
             {/* トースト通知 */}
             <ToastContainer />
+
+            {/* 一括担当者設定モーダル */}
+            <BulkAssignModal
+                isOpen={showBulkAssignModal}
+                onClose={() => setShowBulkAssignModal(false)}
+            />
+
+            {/* 一括移動モーダル */}
+            <BulkMoveModal
+                isOpen={showBulkMoveModal}
+                onClose={() => setShowBulkMoveModal(false)}
+            />
+
+            {/* 一括アクションバー */}
+            <BulkActionBar
+                onOpenBulkAssign={() => setShowBulkAssignModal(true)}
+                onOpenBulkMove={() => setShowBulkMoveModal(true)}
+            />
         </div>
     );
 }
