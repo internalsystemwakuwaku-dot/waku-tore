@@ -5,6 +5,7 @@ import { BoardView } from "@/components/board/BoardView";
 import { FilterBar } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
 import { useBoardStore } from "@/stores/boardStore";
+import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import Link from "next/link";
 
 interface User {
@@ -123,13 +124,8 @@ export function BoardClient({ user }: BoardClientProps) {
                             📊
                         </button>
 
-                        {/* 設定（TODO） */}
-                        <button
-                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="設定"
-                        >
-                            ⚙️
-                        </button>
+                        {/* テーマセレクター */}
+                        <ThemeSelector />
 
                         {/* 区切り線 */}
                         <div className="w-px h-6 bg-gray-200 mx-2" />

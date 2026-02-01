@@ -1,0 +1,348 @@
+/**
+ * テーマシステム - GASの11テーマを再現
+ */
+
+/* =========================================
+   デフォルトテーマ（ライト）
+   ========================================= */
+:root,
+[data-theme="default"] {
+    --primary-color: #0079bf;
+    --bg-color: #f4f5f7;
+    --card-bg: #ffffff;
+    --text-color: #172b4d;
+    --sub-text: #5e6c84;
+    --list-bg: #ebecf0;
+    --border-color: #dfe1e6;
+    --header-bg: #ffffff;
+    --input-bg: #fafbfc;
+}
+
+/* =========================================
+   ダークモード
+   ========================================= */
+[data-theme="dark"] {
+    --primary-color: #5ba4cf;
+    --bg-color: #1d2125;
+    --card-bg: #22272b;
+    --text-color: #b6c2cf;
+    --sub-text: #9fadbc;
+    --list-bg: #101204;
+    --border-color: #3b4249;
+    --header-bg: #1d2125;
+    --input-bg: #22272b;
+}
+
+/* =========================================
+   猫モード 🐱
+   ========================================= */
+[data-theme="cat"] {
+    --primary-color: #ff85a2;
+    --bg-color: #fff0f5;
+    --card-bg: #ffffff;
+    --text-color: #5d4037;
+    --sub-text: #9e8279;
+    --list-bg: #ffe4e1;
+    --border-color: #ffcdd2;
+    --header-bg: #ffffff;
+    --input-bg: #fffbf0;
+}
+
+[data-theme="cat"]::after {
+    content: "🐱";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* =========================================
+   犬モード 🐶
+   ========================================= */
+[data-theme="dog"] {
+    --primary-color: #fb8c00;
+    --bg-color: #fff8e1;
+    --card-bg: #ffffff;
+    --text-color: #3e2723;
+    --sub-text: #6d4c41;
+    --list-bg: #ffe0b2;
+    --border-color: #ffe082;
+    --header-bg: #fffde7;
+    --input-bg: #ffffff;
+}
+
+[data-theme="dog"]::after {
+    content: "🐶";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* =========================================
+   馬モード（競馬風） 🏇
+   ========================================= */
+[data-theme="horse"] {
+    --primary-color: #0b4d2c;
+    --bg-color: #f4f1ea;
+    --card-bg: #fffbf0;
+    --text-color: #2d1b0e;
+    --sub-text: #634f3d;
+    --list-bg: #e6dfcf;
+    --border-color: #8b5e3c;
+    --header-bg: #1a1a1a;
+    --input-bg: #fdfcf8;
+}
+
+[data-theme="horse"]::after {
+    content: "🐎";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 80px;
+    opacity: 0.5;
+    z-index: 0;
+    pointer-events: none;
+    animation: gallop 2s ease-in-out infinite alternate;
+}
+
+@keyframes gallop {
+    0% {
+        transform: translateY(0);
+    }
+
+    100% {
+        transform: translateY(-15px);
+    }
+}
+
+/* =========================================
+   ドラゴンモード 🐉
+   ========================================= */
+[data-theme="dragon"] {
+    --primary-color: #d32f2f;
+    --bg-color: #263238;
+    --card-bg: #37474f;
+    --text-color: #eceff1;
+    --sub-text: #b0bec5;
+    --list-bg: #1c2529;
+    --border-color: #455a64;
+    --header-bg: #263238;
+    --input-bg: #37474f;
+}
+
+[data-theme="dragon"]::after {
+    content: "🐉";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 0 5px #d32f2f);
+}
+
+/* =========================================
+   ネオンモード 🌃
+   ========================================= */
+[data-theme="neon"] {
+    --primary-color: #00fff9;
+    --bg-color: #0a0a12;
+    --card-bg: #12121a;
+    --text-color: #e0e0e0;
+    --sub-text: #a0a0b0;
+    --list-bg: #1a1a24;
+    --border-color: #333344;
+    --header-bg: #0f0f18;
+    --input-bg: #12121a;
+}
+
+[data-theme="neon"] h1,
+[data-theme="neon"] .header-title {
+    text-shadow: 0 0 10px var(--primary-color);
+}
+
+/* =========================================
+   ゲーミングモード 🌈
+   ========================================= */
+[data-theme="gaming"] {
+    --primary-color: #ff0000;
+    --bg-color: #000000;
+    --card-bg: #111111;
+    --text-color: #ffffff;
+    --sub-text: #aaaaaa;
+    --list-bg: #0a0a0a;
+    --border-color: #333;
+    --header-bg: #080808;
+    --input-bg: #111111;
+}
+
+@keyframes rainbow-border {
+    0% {
+        border-color: #ff0000;
+        box-shadow: 0 0 10px #ff0000;
+    }
+
+    17% {
+        border-color: #ff7f00;
+        box-shadow: 0 0 10px #ff7f00;
+    }
+
+    33% {
+        border-color: #ffff00;
+        box-shadow: 0 0 10px #ffff00;
+    }
+
+    50% {
+        border-color: #00ff00;
+        box-shadow: 0 0 10px #00ff00;
+    }
+
+    67% {
+        border-color: #0000ff;
+        box-shadow: 0 0 10px #0000ff;
+    }
+
+    83% {
+        border-color: #8b00ff;
+        box-shadow: 0 0 10px #8b00ff;
+    }
+
+    100% {
+        border-color: #ff0000;
+        box-shadow: 0 0 10px #ff0000;
+    }
+}
+
+[data-theme="gaming"] .card-container {
+    animation: rainbow-border 5s infinite;
+}
+
+/* =========================================
+   レトロRPGモード 👾
+   ========================================= */
+[data-theme="retro"] {
+    --primary-color: #d32f2f;
+    --bg-color: #fce4a8;
+    --card-bg: #ffffff;
+    --text-color: #212121;
+    --sub-text: #555555;
+    --list-bg: #f5deb3;
+    --border-color: #000000;
+    --header-bg: #5c94fc;
+    --input-bg: #fff8e1;
+    --font-family: 'Courier New', monospace;
+}
+
+[data-theme="retro"]::after {
+    content: "👾";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+/* =========================================
+   設計図モード 📐
+   ========================================= */
+[data-theme="blueprint"] {
+    --primary-color: #ffffff;
+    --bg-color: #2c5ea8;
+    --card-bg: rgba(255, 255, 255, 0.1);
+    --text-color: #ffffff;
+    --sub-text: #d0e0ff;
+    --list-bg: rgba(255, 255, 255, 0.1);
+    --border-color: rgba(255, 255, 255, 0.5);
+    --header-bg: #224a85;
+    --input-bg: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="blueprint"] {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+[data-theme="blueprint"]::after {
+    content: "📐";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.4;
+    z-index: 0;
+}
+
+/* =========================================
+   和風・浮世絵モード 🍵
+   ========================================= */
+[data-theme="japan"] {
+    --primary-color: #b7282e;
+    --bg-color: #f3f0e6;
+    --card-bg: #ffffff;
+    --text-color: #2f2725;
+    --sub-text: #706b67;
+    --list-bg: #e6e1d6;
+    --border-color: #9e8b7e;
+    --header-bg: #1f314a;
+    --input-bg: #f9f8f5;
+}
+
+[data-theme="japan"]::after {
+    content: "🍵";
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 60px;
+    opacity: 0.4;
+    z-index: 0;
+}
+
+/* =========================================
+   テーマ共通スタイル適用
+   ========================================= */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* ヘッダー */
+header,
+.header-container {
+    background-color: var(--header-bg) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* カード */
+.card-container,
+.trello-card {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+/* リスト */
+.list-container,
+.list-column {
+    background-color: var(--list-bg) !important;
+}
+
+/* 入力フィールド */
+input,
+select,
+textarea {
+    background-color: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
