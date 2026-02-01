@@ -8,6 +8,7 @@ import { SettingsModal } from "@/components/modals/SettingsModal";
 import { BulkAssignModal } from "@/components/modals/BulkAssignModal";
 import { BulkMoveModal } from "@/components/modals/BulkMoveModal";
 import { CardLogModal } from "@/components/modals/CardLogModal";
+import { DashboardModal } from "@/components/modals/DashboardModal";
 import { useBoardStore } from "@/stores/boardStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
@@ -40,6 +41,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
     const [showCardLogModal, setShowCardLogModal] = useState<{ id: string; name: string } | null>(null);
+    const [showDashboardModal, setShowDashboardModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
@@ -137,8 +139,9 @@ export function BoardClient({ user }: BoardClientProps) {
                             📝
                         </button>
 
-                        {/* ダッシュボード（TODO） */}
+                        {/* ダッシュボード */}
                         <button
+                            onClick={() => setShowDashboardModal(true)}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
                             title="ダッシュボード"
                         >
@@ -287,6 +290,12 @@ export function BoardClient({ user }: BoardClientProps) {
                     onClose={() => setShowCardLogModal(null)}
                 />
             )}
+
+            {/* ダッシュボードモーダル */}
+            <DashboardModal
+                isOpen={showDashboardModal}
+                onClose={() => setShowDashboardModal(false)}
+            />
         </div>
     );
 }
