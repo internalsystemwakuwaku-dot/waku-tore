@@ -7,6 +7,7 @@ import { CardModal, MemoModal } from "@/components/modals";
 import { useBoardStore } from "@/stores/boardStore";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
+import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import Link from "next/link";
 
 interface User {
@@ -127,6 +128,9 @@ export function BoardClient({ user }: BoardClientProps) {
                         >
                             📊
                         </button>
+
+                        {/* 予定サイドバー */}
+                        <ScheduleSidebar />
 
                         {/* テーマセレクター */}
                         <ThemeSelector />
