@@ -4,8 +4,8 @@ import { useState } from "react";
 import { BoardView } from "@/components/board/BoardView";
 import { FilterBar, QuickFilterButtons } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
+import { SettingsModal } from "@/components/modals/SettingsModal";
 import { useBoardStore } from "@/stores/boardStore";
-import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import Link from "next/link";
@@ -27,6 +27,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const { ui, toggleBulkMode, clearSelection, data, setEditingCard } = useBoardStore();
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
@@ -135,8 +136,13 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* 予定サイドバー */}
                         <ScheduleSidebar />
 
-                        {/* テーマセレクター */}
-                        <ThemeSelector />
+                        {/* 設定ボタン */}
+                        <button
+                            onClick={() => setShowSettingsModal(true)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                        >
+                            ⚙️ 設定
+                        </button>
 
                         {/* 区切り線 */}
                         <div className="w-px h-6 bg-gray-200 mx-2" />
@@ -211,6 +217,12 @@ export function BoardClient({ user }: BoardClientProps) {
                     onClose={() => setShowMemoModal(false)}
                 />
             )}
+
+            {/* 設定モーダル */}
+            <SettingsModal
+                isOpen={showSettingsModal}
+                onClose={() => setShowSettingsModal(false)}
+            />
         </div>
     );
 }
