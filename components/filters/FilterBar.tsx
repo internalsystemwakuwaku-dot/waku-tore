@@ -8,7 +8,7 @@ import { useBoardStore } from "@/stores/boardStore";
  * GAS構成: 選択モード | 全解除/全ロック | 並び替え | 各担当フィルター | 列表示設定 | 検索 | 件数
  */
 export function FilterBar() {
-    const { data, filters, setFilter, resetFilters, getFilteredCards, ui, toggleBulkMode } = useBoardStore();
+    const { data, filters, setFilter, resetFilters, getFilteredCards, ui, toggleBulkMode, toggleListVisibility } = useBoardStore();
     const [showColumnMenu, setShowColumnMenu] = useState(false);
 
     if (!data) return null;
@@ -205,8 +205,21 @@ export function FilterBar() {
                         className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-[150px]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="p-2 text-xs text-gray-600">
-                            列の表示/非表示を設定（準備中）
+                        <div className="p-2 max-h-[300px] overflow-y-auto custom-scrollbar min-w-[200px]">
+                            <div className="mb-2 text-xs font-bold text-gray-500 px-1 border-b border-gray-100 pb-1">リストの表示設定</div>
+                            {data.lists.map((list) => (
+                                <label key={list.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={!ui.hiddenListIds.has(list.id)}
+                                        onChange={() => toggleListVisibility(list.id)}
+                                        className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                    <span className={`text-xs truncate ${ui.hiddenListIds.has(list.id) ? "text-gray-400" : "text-gray-700 font-medium"}`}>
+                                        {list.name}
+                                    </span>
+                                </label>
+                            ))}
                         </div>
                     </div>
                 )}
