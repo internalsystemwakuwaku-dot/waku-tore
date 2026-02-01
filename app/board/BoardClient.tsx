@@ -7,6 +7,7 @@ import { CardModal, MemoModal } from "@/components/modals";
 import { SettingsModal } from "@/components/modals/SettingsModal";
 import { BulkAssignModal } from "@/components/modals/BulkAssignModal";
 import { BulkMoveModal } from "@/components/modals/BulkMoveModal";
+import { CardLogModal } from "@/components/modals/CardLogModal";
 import { useBoardStore } from "@/stores/boardStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
@@ -38,6 +39,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showOmikujiModal, setShowOmikujiModal] = useState(false);
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+    const [showCardLogModal, setShowCardLogModal] = useState<{ id: string; name: string } | null>(null);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
@@ -226,6 +228,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 <CardModal
                     card={editingCard}
                     onClose={() => setEditingCard(null)}
+                    onOpenLog={(id, name) => setShowCardLogModal({ id, name })}
                 />
             )}
 
@@ -275,6 +278,15 @@ export function BoardClient({ user }: BoardClientProps) {
                 onOpenBulkAssign={() => setShowBulkAssignModal(true)}
                 onOpenBulkMove={() => setShowBulkMoveModal(true)}
             />
+
+            {/* 操作履歴モーダル */}
+            {showCardLogModal && (
+                <CardLogModal
+                    cardId={showCardLogModal.id}
+                    cardName={showCardLogModal.name}
+                    onClose={() => setShowCardLogModal(null)}
+                />
+            )}
         </div>
     );
 }

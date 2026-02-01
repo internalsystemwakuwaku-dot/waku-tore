@@ -8,6 +8,7 @@ import type { ProcessedCard, CardRoles } from "@/types/trello";
 interface CardModalProps {
     card: ProcessedCard;
     onClose: () => void;
+    onOpenLog: (cardId: string, cardName: string) => void;
 }
 
 // システム種別の選択肢
@@ -20,7 +21,7 @@ const SYSTEM_TYPE_OPTIONS = [
 // 構築番号の選択肢（1-50）
 const CONSTRUCTION_NUMBER_OPTIONS = ["(未設定)", ...Array.from({ length: 50 }, (_, i) => String(i + 1))];
 
-export function CardModal({ card, onClose }: CardModalProps) {
+export function CardModal({ card, onClose, onOpenLog }: CardModalProps) {
     const { data } = useBoardStore();
     const [roles, setRoles] = useState<CardRoles>(card.roles);
     const [isSaving, setIsSaving] = useState(false);
@@ -483,6 +484,12 @@ export function CardModal({ card, onClose }: CardModalProps) {
                 {/* フッター */}
                 {activeTab !== "move" && (
                     <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 flex justify-end gap-3">
+                        <button
+                            onClick={() => onOpenLog(card.id, card.name)}
+                            className="mr-auto px-4 py-2 text-gray-500 hover:text-gray-700 text-xs flex items-center gap-1"
+                        >
+                            <span className="material-icons text-sm">history</span> 履歴
+                        </button>
                         <button
                             onClick={onClose}
                             className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm transition-colors"
