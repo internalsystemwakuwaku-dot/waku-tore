@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BoardView } from "@/components/board/BoardView";
-import { FilterBar } from "@/components/filters/FilterBar";
+import { FilterBar, QuickFilterButtons } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
 import { useBoardStore } from "@/stores/boardStore";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
@@ -94,7 +94,10 @@ export function BoardClient({ user }: BoardClientProps) {
                         )}
 
                         {/* 区切り線 */}
-                        <div className="w-px h-6 bg-gray-200 mx-2" />
+                        <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                        {/* GAS風クイックフィルター */}
+                        <QuickFilterButtons />
 
                         {/* リロード */}
                         <button
