@@ -1,26 +1,306 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-sans: var(--font-noto-sans-jp), system-ui, sans-serif;
+  --font-display: var(--font-orbitron), system-ui, sans-serif;
+
+  /* カラーテーマ */
+  --primary-color: #0079bf;
+  --primary-hover: #005a96;
+  --success-color: #61bd4f;
+  --warning-color: #f2d600;
+  --danger-color: #eb5a46;
+
+  /* 背景・テキスト */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f5f7;
+  --text-primary: #172b4d;
+  --text-secondary: #5e6c84;
+  --border-color: #dfe1e6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ダークモード */
+.dark {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --text-primary: #eaeaea;
+  --text-secondary: #a0a0a0;
+  --border-color: #3a3a5a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 基本スタイル */
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* スクロールバーカスタマイズ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* カードスタイル */
+.card-item {
+  transition: all 0.2s ease;
+}
+
+.card-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* モーダルオーバーレイ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+/* トースト通知 */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ラベルカラー（Trello互換） */
+.label-green {
+  background: #61bd4f;
+}
+
+.label-yellow {
+  background: #f2d600;
+}
+
+.label-orange {
+  background: #ff9f1a;
+}
+
+.label-red {
+  background: #eb5a46;
+}
+
+.label-purple {
+  background: #c377e0;
+}
+
+.label-blue {
+  background: #0079bf;
+}
+
+.label-sky {
+  background: #00c2e0;
+}
+
+.label-lime {
+  background: #51e898;
+}
+
+.label-pink {
+  background: #ff78cb;
+}
+
+.label-black {
+  background: #344563;
+}
+
+/* ゲーミングエフェクト（レベル解放時用） */
+@keyframes gaming {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gaming-text {
+  background: linear-gradient(90deg,
+      #ff0000,
+      #ff7f00,
+      #ffff00,
+      #00ff00,
+      #0000ff,
+      #4b0082,
+      #8f00ff);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gaming 3s ease infinite;
+}
+
+/* レベルアップモーダルアニメーション */
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  70% {
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.6s ease-out;
+}
+
+/* XP獲得フロートアニメーション */
+@keyframes xpFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+}
+
+.animate-xp-float {
+  animation: xpFloat 1s ease-out forwards;
+}
+
+/* 紙吹雪 */
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(-100%) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #1dd1a1);
+  animation: confettiFall 3s ease-out forwards;
+}
+
+.confetti:nth-child(odd) {
+  background: #ff6b6b;
+  width: 8px;
+  height: 12px;
+}
+
+.confetti:nth-child(even) {
+  background: #feca57;
+  width: 12px;
+  height: 8px;
+}
+
+.confetti:nth-child(3n) {
+  background: #48dbfb;
+}
+
+/* プログレスバーアニメーション */
+@keyframes progressPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+}
+
+.progress-pulse {
+  animation: progressPulse 2s infinite;
 }

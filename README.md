@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# わく☆とれ (WAKU-TORE)
 
-## Getting Started
+Trelloボード管理とゲーミフィケーションを組み合わせたNext.jsアプリケーション。
 
-First, run the development server:
+## 技術スタック
+
+- **Framework**: Next.js 15 (App Router)
+- **Database**: Turso (SQLite)
+- **Auth**: Better Auth
+- **State**: Zustand
+- **Styling**: Tailwind CSS
+
+## 機能
+
+### ボード管理
+- Trelloボードの表示・フィルタリング
+- カード担当者の設定
+- メモ・操作ログ
+
+### ゲーミフィケーション
+- XP・レベルシステム
+- ショップ（テーマ・アイテム購入）
+- ランキング
+
+### ミニゲーム
+- 競馬ゲーム
+- ガチャシステム
+
+## セットアップ
+
+### 1. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 2. 環境変数の設定
+
+`.env.example` を `.env.local` にコピーして設定:
+
+```bash
+cp .env.example .env.local
+```
+
+### 3. データベースの準備
+
+```bash
+npm run db:generate
+npm run db:push
+```
+
+### 4. 開発サーバーの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## デプロイ
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. GitHubリポジトリをVercelに接続
+2. 環境変数を設定:
+   - `TRELLO_API_KEY`
+   - `TRELLO_API_TOKEN`
+   - `TRELLO_BOARD_ID`
+   - `TURSO_DATABASE_URL`
+   - `TURSO_AUTH_TOKEN`
+   - `BETTER_AUTH_SECRET`
+   - `BETTER_AUTH_URL`
+   - `NEXT_PUBLIC_APP_URL`
 
-## Learn More
+3. デプロイ
 
-To learn more about Next.js, take a look at the following resources:
+## スクリプト
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| コマンド | 説明 |
+|---------|------|
+| `npm run dev` | 開発サーバー |
+| `npm run build` | 本番ビルド |
+| `npm run start` | 本番サーバー |
+| `npm run lint` | ESLint |
+| `npm run db:generate` | マイグレーション生成 |
+| `npm run db:push` | DB同期 |
+| `npm run db:studio` | Drizzle Studio |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## ライセンス
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
