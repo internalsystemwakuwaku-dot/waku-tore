@@ -7,7 +7,10 @@ import { CardModal, MemoModal } from "@/components/modals";
 import { SettingsModal } from "@/components/modals/SettingsModal";
 import { useBoardStore } from "@/stores/boardStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
+import { LevelUpModal } from "@/components/game/LevelUpModal";
+import { OmikujiModal } from "@/components/game/OmikujiModal";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
+import { BgmPlayer } from "@/components/ui/BgmPlayer";
 import Link from "next/link";
 
 interface User {
@@ -28,6 +31,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showOmikujiModal, setShowOmikujiModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
@@ -133,6 +137,15 @@ export function BoardClient({ user }: BoardClientProps) {
                             📊
                         </button>
 
+                        {/* おみくじ */}
+                        <button
+                            onClick={() => setShowOmikujiModal(true)}
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                            title="今日の運勢"
+                        >
+                            🔮
+                        </button>
+
                         {/* 予定サイドバー */}
                         <ScheduleSidebar />
 
@@ -223,6 +236,18 @@ export function BoardClient({ user }: BoardClientProps) {
                 isOpen={showSettingsModal}
                 onClose={() => setShowSettingsModal(false)}
             />
+
+            {/* おみくじモーダル */}
+            <OmikujiModal
+                isOpen={showOmikujiModal}
+                onClose={() => setShowOmikujiModal(false)}
+            />
+
+            {/* レベルアップ演出 */}
+            <LevelUpModal />
+
+            {/* BGMプレイヤー */}
+            <BgmPlayer />
         </div>
     );
 }
