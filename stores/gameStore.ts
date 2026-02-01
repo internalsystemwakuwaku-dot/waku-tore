@@ -208,7 +208,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         return { current: levelXp, required, percent };
     },
 
-    canAfford: (price) => get().data.money >= price,
+    canAfford: (price) => get().data.money - price >= -10000,
     getOwnedCount: (itemId) => get().data.inventory[itemId] || 0,
 
     // XP追加（レベルアップチェック付き）

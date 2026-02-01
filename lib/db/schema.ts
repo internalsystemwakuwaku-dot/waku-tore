@@ -113,21 +113,30 @@ export const gameData = sqliteTable("game_data", {
 
 // 競馬レース
 export const keibaRaces = sqliteTable("keiba_races", {
-    id: text("id").primaryKey(),                           // raceIdからidに変更
-    userId: text("user_id").notNull(),                     // 追加
-    name: text("name").notNull(),                          // 追加
-    horsesJson: text("horses_json").notNull(),             // 追加
-    status: text("status").notNull().default("waiting"),   // 追加
-    winnerId: integer("winner_id"),                         // 追加
-    finishedAt: text("finished_at"),                       // 追加
+    id: text("id").primaryKey(),
+    userId: text("user_id"),                             // null = System/Global race
+    name: text("name").notNull(),
+    horsesJson: text("horses_json").notNull(),
+    status: text("status").notNull().default("waiting"), // waiting, open, closed, finished
+    winnerId: integer("winner_id"),
+    resultsJson: text("results_json"), // 1着〜3着等の結果配列
+    scheduledAt: text("scheduled_at"),                   // 発走予定時刻
+    finishedAt: text("finished_at"),
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-// 競馬取引記録
+// 競馬取引記録（兼ベット情報）
 export const keibaTransactions = sqliteTable("keiba_transactions", {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(),                   // ユーザーID (追加)
     raceId: text("race_id").notNull(),
-    horseId: integer("horse_id").notNull(),
+
+    // ベット詳細
+    type: text("type").default("WIN"),                   // WIN, PLACE, TRIFECTA etc.
+    mode: text("mode").default("NORMAL"),                // NORMAL, BOX etc.
+    horseId: integer("horse_id"),                        // 単勝等はこれを使用
+    details: text("details"),                            // 複雑な買い目 (JSON)
+
     betAmount: integer("bet_amount").notNull(),
     payout: integer("payout").notNull().default(0),
     isWin: integer("is_win", { mode: "boolean" }).default(false),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useGameStore, SHOP_ITEMS } from "@/stores/gameStore";
+import { useSound } from "@/lib/sound/SoundContext";
 import { useState } from "react";
 import type { ShopItem } from "@/types/game";
 
@@ -16,6 +17,7 @@ interface ShopModalProps {
  */
 export function ShopModal({ isOpen, onClose }: ShopModalProps) {
     const { data, purchaseItem, canAfford, getOwnedCount } = useGameStore();
+    const { playSe, playBgm } = useSound();
     const [activeCategory, setActiveCategory] = useState<ShopItem["category"]>("facility");
 
     if (!isOpen) return null;
@@ -34,11 +36,17 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
 
     // 購入処理
     const handlePurchase = (item: ShopItem) => {
-        if (!canAfford(item.price)) return;
+        if (!canAfford(item.price)) {
+            playSe("cancel");
+            return;
+        }
 
         const result = purchaseItem(item.id);
         if (!result.success) {
             alert(result.message);
+            playSe("cancel");
+        } else {
+            playSe("coin");
         }
     };
 
@@ -81,8 +89,8 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${activeCategory === cat
-                                        ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30"
-                                        : "hover:bg-gray-700 text-gray-400 hover:text-white"
+                                    ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30"
+                                    : "hover:bg-gray-700 text-gray-400 hover:text-white"
                                     }`}
                             >
                                 <span className={`text-lg transition-transform ${activeCategory === cat ? "scale-110" : ""}`}>
@@ -105,10 +113,10 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                     <div
                                         key={item.id}
                                         className={`bg-gray-800 border-2 rounded-xl p-4 transition-all relative overflow-hidden group ${isMax
-                                                ? "border-green-500/50 opacity-80"
-                                                : affordable
-                                                    ? "border-gray-700 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-500/10"
-                                                    : "border-gray-700 opacity-60"
+                                            ? "border-green-500/50 opacity-80"
+                                            : affordable
+                                                ? "border-gray-700 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-500/10"
+                                                : "border-gray-700 opacity-60"
                                             }`}
                                     >
                                         <div className="flex gap-4">
@@ -146,8 +154,8 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                                             onClick={() => handlePurchase(item)}
                                                             disabled={!affordable}
                                                             className={`px-4 py-1.5 rounded text-sm font-bold shadow-lg transition-transform active:scale-95 ${affordable
-                                                                    ? "bg-amber-500 hover:bg-amber-400 text-black"
-                                                                    : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                                                ? "bg-amber-500 hover:bg-amber-400 text-black"
+                                                                : "bg-gray-700 text-gray-500 cursor-not-allowed"
                                                                 }`}
                                                         >
                                                             購入

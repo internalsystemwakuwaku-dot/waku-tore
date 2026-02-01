@@ -24,10 +24,22 @@ export interface Race {
     startedAt: string | null;
 }
 
+// 賭けの種類・モード
+export type BetType = "WIN" | "PLACE" | "QUINELLA" | "EXACTA" | "TRIO" | "TRIFECTA";
+export type BetMode = "NORMAL" | "BOX" | "NAGASHI";
+
 // 賭け
 export interface Bet {
-    horseId: number;
+    id?: string;
+    raceId?: string;
+    userId?: string; // 履歴表示用
+    type: BetType;
+    mode: BetMode;
+    horseId?: number; // 単勝・複勝用
+    details?: string; // 複雑な買い目 (JSON)
     amount: number;
+    payout?: number;
+    createdAt?: string;
 }
 
 // レース結果
@@ -35,16 +47,20 @@ export interface RaceResult {
     raceId: string;
     winnerId: number;
     winnerName: string;
-    userBet: Bet | null;
-    payout: number;       // 配当金（0なら負け）
+    userBets: Bet[]; // 複数ベット対応
+    totalPayout: number;
     isWin: boolean;
 }
 
-// 競馬トランザクション
+// 競馬トランザクション（兼ベット履歴）
 export interface KeibaTransaction {
     id: number;
     raceId: string;
-    horseId: number;
+    userId: string;
+    type: string;
+    mode: string;
+    horseId?: number;
+    details?: string;
     betAmount: number;
     payout: number;
     isWin: boolean;

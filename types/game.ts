@@ -5,6 +5,7 @@
 
 // ゲームデータ
 export interface GameData {
+    userId: string; // 追加
     xp: number;
     level: number;
     money: number;
@@ -122,6 +123,7 @@ export const LEVEL_REWARDS: LevelReward[] = [
 
 // デフォルトゲームデータ
 export const DEFAULT_GAME_DATA: GameData = {
+    userId: "",
     xp: 0,
     level: 1,
     money: 0,

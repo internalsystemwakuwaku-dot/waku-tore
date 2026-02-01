@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { SoundProvider } from "@/lib/sound/SoundContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,7 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className={`${notoSansJP.variable} ${orbitron.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <SoundProvider>{children}</SoundProvider>
+      </body>
     </html>
   );
 }

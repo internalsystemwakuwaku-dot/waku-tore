@@ -22,11 +22,13 @@ export async function getGameData(userId: string): Promise<GameData> {
         .limit(1);
 
     if (existing.length > 0) {
-        return JSON.parse(existing[0].dataJson) as GameData;
+        const data = JSON.parse(existing[0].dataJson) as GameData;
+        data.userId = userId; // Ensure userId is present
+        return data;
     }
 
     // 新規作成
-    const newData = { ...DEFAULT_GAME_DATA };
+    const newData = { ...DEFAULT_GAME_DATA, userId };
     await db.insert(gameData).values({
         userId,
         dataJson: JSON.stringify(newData),
@@ -127,8 +129,10 @@ export async function transactMoney(
     try {
         const data = await getGameData(userId);
 
-        if (amount < 0 && data.money + amount < 0) {
-            return { success: false, error: "所持金が不足しています" };
+        // 借金上限 (-10,000G) チェック
+        const DEBT_LIMIT = -10000;
+        if (amount < 0 && data.money + amount < DEBT_LIMIT) {
+            return { success: false, error: `資金不足です (借金上限: ${DEBT_LIMIT.toLocaleString()}G)` };
         }
 
         data.money += amount;

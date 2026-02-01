@@ -1,298 +1,464 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameStore } from "@/stores/gameStore";
+import { getActiveRace, placeBet } from "@/app/actions/keiba";
+import type { Race, Bet, Horse } from "@/types/keiba";
+
+import { useSound } from "@/lib/sound/SoundContext";
 
 interface HorseRaceModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-interface Horse {
-    id: number;
-    name: string;
-    odds: number;
-    color: string;
-    icon: string;
-}
-
-const HORSES: Horse[] = [
-    { id: 1, name: "バグスレイヤー", odds: 2.5, color: "bg-red-500", icon: "🐞" },
-    { id: 2, name: "デプロイインパクト", odds: 3.8, color: "bg-blue-500", icon: "🚀" },
-    { id: 3, name: "コードレビュー", odds: 5.2, color: "bg-green-500", icon: "👓" },
-    { id: 4, name: "ムゲンループ", odds: 12.5, color: "bg-yellow-500", icon: "🔄" },
-    { id: 5, name: "カミゴッド", odds: 1.8, color: "bg-purple-500", icon: "😇" },
-];
-
-/**
- * 競馬モーダル - GAS完全再現版
- * - 投票 -> レース -> 結果発表
- */
 export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
-    const { data, addMoney, addXP } = useGameStore();
-    const [phase, setPhase] = useState<"bet" | "race" | "result">("bet");
+    const { data: gameUser } = useGameStore();
+    const { playSe, playBgm, stopBgm } = useSound();
+    const [race, setRace] = useState<Race | null>(null);
+    const [myBets, setMyBets] = useState<Bet[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // UI State
+    const [betType, setBetType] = useState<"WIN" | "PLACE">("WIN"); // 単勝 | 複勝
     const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
     const [betAmount, setBetAmount] = useState<number>(100);
+    const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
-    const [positions, setPositions] = useState<number[]>([0, 0, 0, 0, 0]);
-    const [ranks, setRanks] = useState<number[]>([]); // ゴール順に馬IDを格納
-
+    // Animation State
+    const [phase, setPhase] = useState<"loading" | "betting" | "racing" | "result">("loading");
+    const [positions, setPositions] = useState<number[]>([0, 0, 0, 0, 0, 0]);
     const raceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // リセット
-    useEffect(() => {
-        if (isOpen && phase === "bet") {
-            setPositions([0, 0, 0, 0, 0]);
-            setRanks([]);
-        }
-    }, [isOpen, phase]);
+    // Initial Fetch
+    const fetchRace = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const { race: fetchedRace, myBets: fetchedBets } = await getActiveRace(gameUser.userId);
+            setRace(fetchedRace);
+            setMyBets(fetchedBets);
 
-    // クローズ時の処理
+            // Determine Phase
+            if (fetchedRace.status === "finished") {
+                if (phase !== "racing") {
+                    setPhase("result");
+                }
+            } else if (fetchedRace.status === "waiting") {
+                const now = new Date();
+                const scheduled = new Date(fetchedRace.startedAt!);
+                if (now >= scheduled) {
+                    setPhase("racing");
+                } else {
+                    setPhase("betting");
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [gameUser.userId]); // Phase should not be a dep here to avoid loops
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchRace();
+            const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+            return () => clearInterval(timer);
+        }
+    }, [isOpen, fetchRace]);
+
+    // Handle Closing
     const handleClose = () => {
-        if (phase === "race") return; // レース中は閉じられない
+        if (phase === "racing") return;
         onClose();
-        setPhase("bet");
-        setPositions([0, 0, 0, 0, 0]);
-        setRanks([]);
+        setPhase("loading");
         setSelectedHorseId(null);
-        setBetAmount(100);
     };
 
-    // レース開始
-    const startRace = () => {
-        if (!selectedHorseId) return;
-        if (data.money < betAmount) {
-            alert("所持金が足りません！");
-            return;
-        }
 
-        addMoney(-betAmount);
-        setPhase("race");
-        setPositions([0, 0, 0, 0, 0]);
-        setRanks([]);
 
-        // アニメーション開始
+    // Rigged Animation
+    const startRiggedAnimation = (winnerId: number) => {
+        const raceDuration = 10000;
+        const interval = 50;
+        const steps = raceDuration / interval;
+        let currentStep = 0;
+
+        const horses = race!.horses;
+
+        if (raceTimerRef.current) clearInterval(raceTimerRef.current);
+
         raceTimerRef.current = setInterval(() => {
-            setPositions((prev) => {
-                const newPositions = [...prev];
-                const finishLine = 100;
-                let finishedCount = 0;
-                let currentRanks = [...ranks]; // これはstate更新関数内では古い値を参照する可能性があるので注意が必要だが、
-                // 今回はsetRanksを別途呼ぶことで対応
+            currentStep++;
+            const progress = currentStep / steps; // 0 to 1
 
-                let isRaceRunning = false;
+            setPositions(prev => {
+                // Initialize if empty
+                if (prev.length === 0) return Array(horses.length).fill(0);
 
-                for (let i = 0; i < 5; i++) {
-                    if (newPositions[i] >= finishLine) {
-                        finishedCount++;
-                        continue;
+                return horses.map((h, idx) => {
+                    const isWinner = h.id === winnerId;
+
+                    // Curve: Slow start, fast middle, sprint end
+                    let p = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+
+                    // Randomness
+                    p += (Math.random() - 0.5) * 0.05;
+
+                    // Convergence at end
+                    if (progress > 0.9) {
+                        const target = isWinner ? 100 : 90 + ((h.id * 17) % 8);
+                        const current = prev[idx] || (p * 100);
+                        // Lerp to target
+                        return current + (target - current) * 0.1;
                     }
 
-                    isRaceRunning = true;
-                    // ランダムに進む
-                    // オッズが低い（強い）ほど進みやすい補正を入れる？
-                    // 今回はカオスにするためほぼランダム + 少しだけ補正
-                    const horse = HORSES[i];
-                    // 基本速度(0.5-2.0) + オッズ逆補正(オッズ低い = 強い = 速い)
-                    // オッズ2.0 -> 補正1.0, オッズ10.0 -> 補正0.2
-                    const speed = Math.random() * 1.5 + (2.0 / horse.odds) * 0.5;
-
-                    newPositions[i] += speed;
-
-                    if (newPositions[i] >= finishLine) {
-                        newPositions[i] = finishLine;
-                        // ゴールした瞬間
-                        // setRanksをここで呼ぶためには、stateの外で管理するか、useEffectで監視が必要
-                        // 今回は簡易的に、次のrenderサイクルで処理するためにpositionsだけ更新し、
-                        // useEffectでranksを更新する
-                    }
-                }
-
-                if (!isRaceRunning) {
-                    if (raceTimerRef.current) clearInterval(raceTimerRef.current);
-                    setTimeout(() => setPhase("result"), 1000);
-                }
-
-                return newPositions;
+                    return Math.min(100, Math.max(0, p * 100));
+                });
             });
-        }, 50);
+
+            if (currentStep >= steps) {
+                if (raceTimerRef.current) clearInterval(raceTimerRef.current);
+                setTimeout(() => setPhase("result"), 2000);
+            }
+        }, interval);
     };
 
-    // 順位判定監視
+    // Poll logic
     useEffect(() => {
-        if (phase !== "race") return;
+        let pollTimer: NodeJS.Timeout;
 
-        // ゴールした馬を検知してランクに追加
-        const finishedHorses = positions
-            .map((pos, idx) => ({ id: HORSES[idx].id, pos }))
-            .filter((h) => h.pos >= 100)
-            .filter((h) => !ranks.includes(h.id)); // まだランクインしていない
-
-        if (finishedHorses.length > 0) {
-            // 複数同時ゴールの場合の処理（今回は単純に検知順）
-            setRanks((prev) => [...prev, ...finishedHorses.map(h => h.id)]);
+        if (phase === "racing") {
+            playBgm("race");
+            // If we just entered racing phase, start polling for result
+            pollTimer = setInterval(async () => {
+                const { race: latestRace, myBets: latestBets } = await getActiveRace(gameUser.userId);
+                if (latestRace.status === "finished" && latestRace.winnerId) {
+                    clearInterval(pollTimer);
+                    setRace(latestRace);
+                    setMyBets(latestBets);
+                    startRiggedAnimation(latestRace.winnerId);
+                }
+            }, 3000);
+        } else if (phase === "result") {
+            stopBgm();
+            playSe("fanfare");
+        } else {
+            // betting
+            playBgm("home"); // Assuming home BGM or maybe shop/custom for betting?
         }
-    }, [positions, phase, ranks]);
+        return () => {
+            clearInterval(pollTimer);
+            if (!isOpen) stopBgm();
+        };
+    }, [phase, gameUser.userId, isOpen]);
 
+    // Place Bet
+    const handleBet = async () => {
+        if (!race || !selectedHorseId) return;
 
-    // 結果コンポーネント
-    const renderResult = () => {
-        const winnerId = ranks[0];
-        const isWin = winnerId === selectedHorseId;
-        const winnerHorse = HORSES.find(h => h.id === winnerId);
-        const dividend = isWin ? Math.floor(betAmount * (winnerHorse?.odds || 1)) : 0;
+        setIsLoading(true);
+        playSe("decide");
 
-        // 配当付与（初回レンダリング時のみに行う必要があるが、
-        // ReactのStrictModeの兼ね合いもあるため、確定ボタン押下時に行うのが安全）
+        const result = await placeBet(gameUser.userId, race.id, [{
+            type: betType,
+            mode: "NORMAL",
+            horseId: selectedHorseId,
+            amount: betAmount
+        }]);
 
-        return (
-            <div className="text-center space-y-6">
-                <div className="text-6xl animate-bounce">
-                    {isWin ? "🎉" : "😢"}
-                </div>
-                <h2 className="text-2xl font-bold">
-                    {isWin ? "的中！おめでとうございます！" : "残念！ハズレ..."}
-                </h2>
-
-                <div className="bg-gray-800 rounded p-4 inline-block">
-                    <p className="text-gray-400 text-sm">優勝馬</p>
-                    <p className="text-xl font-bold text-white flex items-center justify-center gap-2">
-                        <span>{winnerHorse?.icon}</span>
-                        {winnerHorse?.name}
-                    </p>
-                </div>
-
-                {isWin && (
-                    <div className="text-yellow-400 font-bold text-xl">
-                        配当金: +{dividend.toLocaleString()} G
-                    </div>
-                )}
-
-                <button
-                    onClick={() => {
-                        if (isWin) {
-                            addMoney(dividend);
-                            addXP(15); // 勝利XP
-                        }
-                        handleClose();
-                    }}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-bold shadow-lg transition-transform active:scale-95"
-                >
-                    {isWin ? "賞金を受け取る" : "閉じる"}
-                </button>
-            </div>
-        );
+        if (result.success) {
+            await fetchRace();
+            playSe("coin");
+            alert("投票しました！");
+            setSelectedHorseId(null);
+        } else {
+            playSe("cancel");
+            alert(result.error || "投票に失敗しました");
+        }
+        setIsLoading(false);
     };
 
     if (!isOpen) return null;
 
+    const horses = race?.horses || [];
+    const scheduledTime = race?.startedAt ? new Date(race.startedAt) : null;
+    const timeDiff = scheduledTime ? Math.max(0, Math.floor((scheduledTime.getTime() - currentTime.getTime()) / 1000)) : 0;
+    const minutes = Math.floor(timeDiff / 60);
+    const seconds = timeDiff % 60;
+
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in">
-            <div className="bg-gray-900 w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden text-white border border-gray-700">
-                {/* ヘッダー */}
-                <div className="bg-green-800 px-6 py-4 flex justify-between items-center shadow-md">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        🐎 わくわくダービー
-                    </h2>
-                    <div className="bg-black/30 px-3 py-1 rounded text-yellow-400 font-mono font-bold">
-                        {data.money.toLocaleString()} G
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-sm">
+            <div className="bg-gray-900 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden text-white border border-gray-700 flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-green-900 to-gray-900 px-6 py-4 flex justify-between items-center shadow-md border-b border-gray-700">
+                    <div className="flex items-center gap-4">
+                        <span className="text-3xl">🐎</span>
+                        <div>
+                            <h2 className="text-2xl font-bold font-mono tracking-wider">
+                                {race?.name || "Loading..."}
+                            </h2>
+                            <p className="text-xs text-green-400 font-mono">
+                                GLOBAL SERVER • CONNECTED
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                        {/* Timer */}
+                        {phase === "betting" && (
+                            <div className="text-center">
+                                <p className="text-xs text-gray-400 mb-1">ENTRY CLOSES IN</p>
+                                <div className={`text-3xl font-mono font-bold ${timeDiff < 60 ? "text-red-500 animate-pulse" : "text-white"}`}>
+                                    {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-black/50 px-4 py-2 rounded-lg border border-yellow-500/30">
+                            <p className="text-xs text-yellow-500 mb-1">WALLET</p>
+                            <p className="text-xl font-mono font-bold text-yellow-400">
+                                {gameUser.money.toLocaleString()} G
+                            </p>
+                        </div>
+
+                        <button onClick={handleClose} className="text-gray-400 hover:text-white transition-colors">
+                            <span className="text-2xl">×</span>
+                        </button>
                     </div>
                 </div>
 
-                <div className="p-6 min-h-[400px]">
-                    {phase === "bet" && (
-                        <div className="space-y-6">
-                            <p className="text-center text-gray-300">
-                                優勝すると思う馬に賭けてください！
-                            </p>
-
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                                {HORSES.map((horse) => (
-                                    <button
-                                        key={horse.id}
-                                        onClick={() => setSelectedHorseId(horse.id)}
-                                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${selectedHorseId === horse.id
-                                                ? "border-yellow-400 bg-yellow-400/20 scale-105"
-                                                : "border-gray-700 bg-gray-800 hover:bg-gray-700"
-                                            }`}
-                                    >
-                                        <span className="text-4xl mb-2">{horse.icon}</span>
-                                        <span className="font-bold text-sm text-center mb-1">{horse.name}</span>
-                                        <span className="text-xs bg-black/50 px-2 py-0.5 rounded text-yellow-300">
-                                            x{horse.odds.toFixed(1)}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="flex flex-col items-center gap-4 bg-gray-800 p-6 rounded-xl border border-gray-700">
-                                <label className="text-sm font-bold text-gray-400">賭け金</label>
-                                <div className="flex items-center gap-4">
-                                    <input
-                                        type="range"
-                                        min="100"
-                                        max={Math.min(data.money, 10000)}
-                                        step="100"
-                                        value={betAmount}
-                                        onChange={(e) => setBetAmount(Number(e.target.value))}
-                                        className="w-64 accent-green-500"
-                                    />
-                                    <span className="text-xl font-mono font-bold w-24 text-right">
-                                        {betAmount} G
-                                    </span>
-                                </div>
-                                <div className="flex gap-2 text-xs">
-                                    <button onClick={() => setBetAmount(100)} className="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">min</button>
-                                    <button onClick={() => setBetAmount(Math.min(data.money, 10000))} className="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600">max</button>
-                                </div>
-                            </div>
-
-                            <div className="text-center">
-                                <button
-                                    onClick={startRace}
-                                    disabled={!selectedHorseId}
-                                    className="px-12 py-3 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xl font-bold rounded-full shadow-lg transition-all active:scale-95 disabled:active:scale-100"
-                                >
-                                    出走！
-                                </button>
-                                <button onClick={handleClose} className="ml-4 text-gray-400 hover:text-white underline">
-                                    やめる
-                                </button>
-                            </div>
+                <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                    {/* Loading State */}
+                    {isLoading && !race && (
+                        <div className="h-full flex items-center justify-center">
+                            <div className="animate-spin text-4xl">↻</div>
                         </div>
                     )}
 
-                    {phase === "race" && (
-                        <div className="space-y-4 py-8 relative">
-                            {/* ゴールライン */}
-                            <div className="absolute right-8 top-0 bottom-0 w-1 bg-white/20 z-0 flex flex-col justify-center items-center">
-                                <span className="bg-gray-900 text-xs px-1 text-gray-500 rotate-90">GOAL</span>
-                            </div>
-
-                            {HORSES.map((horse, idx) => (
-                                <div key={horse.id} className="relative z-10">
-                                    <div className="flex items-center gap-2 mb-1 pl-4">
-                                        <span className="text-xs w-24 truncate text-gray-400">{horse.name}</span>
-                                    </div>
-                                    <div className="h-12 bg-gray-800 mx-4 rounded-full relative overflow-hidden border border-gray-700">
-                                        {/* 馬 */}
-                                        <div
-                                            className="absolute top-0 bottom-0 transition-all duration-75 flex items-center justify-end pr-2"
-                                            style={{
-                                                left: `${positions[idx]}%`,
-                                                width: "60px",
-                                                transform: "translateX(-100%)" // 左にあふれないように調整
-                                            }}
-                                        >
-                                            <span className="text-3xl transform -scale-x-100 inline-block">{horse.icon}</span>
+                    {/* Betting Phase */}
+                    {phase === "betting" && race && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2 space-y-4">
+                                <div className="flex justify-between items-end mb-2">
+                                    <div className="flex gap-4 items-center">
+                                        <h3 className="text-lg font-bold border-l-4 border-green-500 pl-3">出走馬一覧</h3>
+                                        <div className="flex bg-gray-800 rounded-lg p-1">
+                                            <button
+                                                onClick={() => setBetType("WIN")}
+                                                className={`px-3 py-1 text-xs rounded ${betType === "WIN" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
+                                            >
+                                                単勝 (WIN)
+                                            </button>
+                                            <button
+                                                onClick={() => setBetType("PLACE")}
+                                                className={`px-3 py-1 text-xs rounded ${betType === "PLACE" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
+                                            >
+                                                複勝 (PLACE)
+                                            </button>
                                         </div>
                                     </div>
+                                    <span className="text-xs text-gray-400">※1着を予想（単勝） / 3着以内を予想（複勝）</span>
                                 </div>
-                            ))}
+
+                                <div className="grid gap-3">
+                                    {horses.map((horse) => (
+                                        <button
+                                            key={horse.id}
+                                            onClick={() => setSelectedHorseId(horse.id)}
+                                            className={`relative group flex items-center p-4 rounded-xl border transition-all duration-200 ${selectedHorseId === horse.id
+                                                ? "border-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.3)] translate-x-1"
+                                                : "border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-500"
+                                                }`}
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-white text-gray-900 font-bold flex items-center justify-center mr-4 shadow-sm">
+                                                {horse.id}
+                                            </div>
+
+                                            <div className="flex-1 text-left">
+                                                <div className="font-bold text-lg group-hover:text-yellow-300 transition-colors">
+                                                    {horse.name}
+                                                </div>
+                                                <div className="text-xs text-gray-400 flex gap-2">
+                                                    <span style={{ color: horse.color }}>●</span>
+                                                    <span>Condition: Excellent</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right px-4">
+                                                <div className="text-xs text-gray-500">ODDS</div>
+                                                <div className="text-2xl font-mono font-bold text-yellow-400">
+                                                    {betType === "WIN" ? horse.odds.toFixed(1) : (horse.odds / 3).toFixed(1)}
+                                                </div>
+                                            </div>
+
+                                            {selectedHorseId === horse.id && (
+                                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-yellow-400 rounded-r-xl"></div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-800/80 rounded-xl p-6 border border-gray-700/50 flex flex-col h-fit sticky top-0">
+                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                    <span className="text-xl">🎫</span> 投票パネル
+                                </h3>
+
+                                {selectedHorseId ? (
+                                    <div className="space-y-6 flex-1">
+                                        <div className="bg-black/30 p-4 rounded-lg">
+                                            <div className="text-sm text-gray-400 mb-1">
+                                                Selected ({betType})
+                                            </div>
+                                            <div className="text-xl font-bold text-white">
+                                                {horses.find(h => h.id === selectedHorseId)?.name}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-bold text-gray-400">BET AMOUNT</label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="range"
+                                                    min="100"
+                                                    max={Math.min(gameUser.money, 100000)}
+                                                    step="100"
+                                                    value={betAmount}
+                                                    onChange={(e) => setBetAmount(Number(e.target.value))}
+                                                    className="flex-1 accent-yellow-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center mt-2">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setBetAmount(Math.max(100, betAmount - 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">-100</button>
+                                                    <button onClick={() => setBetAmount(Math.min(gameUser.money, betAmount + 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">+100</button>
+                                                </div>
+                                                <span className="text-2xl font-mono font-bold text-white">
+                                                    {betAmount.toLocaleString()} G
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-gray-700">
+                                            <div className="flex justify-between text-sm mb-2">
+                                                <span className="text-gray-400">予想払戻金</span>
+                                                <span className="text-yellow-400 font-bold">
+                                                    {Math.floor(betAmount * (betType === "WIN" ? (horses.find(h => h.id === selectedHorseId)?.odds || 1) : (horses.find(h => h.id === selectedHorseId)?.odds || 3) / 3)).toLocaleString()} G
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={handleBet}
+                                                disabled={isLoading}
+                                                className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isLoading ? "処理中..." : "投票する"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-lg p-8">
+                                        <span className="text-4xl mb-4">👈</span>
+                                        <p>右の一覧から</p>
+                                        <p>馬を選択してください</p>
+                                    </div>
+                                )}
+
+                                {myBets.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-gray-700">
+                                        <h4 className="font-bold text-sm text-gray-400 mb-3">MY BETS (Total: {myBets.length})</h4>
+                                        <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                            {myBets.map(bet => {
+                                                const h = horses.find(h => h.id === bet.horseId);
+                                                return (
+                                                    <div key={bet.id} className="flex justify-between items-center text-xs bg-gray-900/50 p-2 rounded border border-gray-700">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`px-1 rounded ${bet.type === "WIN" ? "bg-yellow-500/20 text-yellow-500" : "bg-blue-500/20 text-blue-500"}`}>
+                                                                {bet.type.substring(0, 1)}
+                                                            </span>
+                                                            <span>{h?.name || `Horse #${bet.horseId}`}</span>
+                                                        </div>
+                                                        <span className="font-mono text-gray-300">{bet.amount.toLocaleString()}</span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {phase === "result" && renderResult()}
+                    {(phase === "racing" || phase === "result") && (
+                        <div className="h-full flex flex-col">
+                            {/* Race Track */}
+                            <div className="flex-1 relative flex flex-col justify-center gap-4 py-8">
+                                <div className="absolute right-16 top-0 bottom-0 w-1 bg-white/20 z-0 flex flex-col justify-center items-center">
+                                    <span className="bg-gray-900 text-xs px-1 text-gray-500 rotate-90">GOAL</span>
+                                </div>
+
+                                {horses.map((horse, idx) => (
+                                    <div key={horse.id} className="relative z-10 mx-8">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs w-24 truncate text-gray-400">{horse.name}</span>
+                                        </div>
+                                        <div className="h-12 bg-gray-800 rounded-full relative overflow-hidden border border-gray-700">
+                                            <div
+                                                className="absolute top-0 bottom-0 transition-transform duration-[50ms] ease-linear flex items-center justify-end pr-2"
+                                                style={{
+                                                    width: "100%",
+                                                    transform: `translateX(-${100 - (positions[idx] || 0)}%)`
+                                                }}
+                                            >
+                                                <span className="text-3xl transform -scale-x-100 inline-block filter drop-shadow-lg">
+                                                    {phase === "result" && race?.winnerId === horse.id ? "👑" : "🏇"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {phase === "racing" && !race?.winnerId && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 backdrop-blur-sm">
+                                        <div className="text-center">
+                                            <div className="text-4xl animate-bounce mb-2">📡</div>
+                                            <p className="text-yellow-400 font-bold">WAITING FOR SATELLITE FEED...</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {phase === "result" && (
+                                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 animate-in fade-in zoom-in duration-300">
+                                        <div className="p-8 bg-gray-900 rounded-2xl border-2 border-yellow-500 text-center shadow-[0_0_100px_rgba(234,179,8,0.3)] max-w-md w-full">
+                                            <h2 className="text-2xl font-bold text-white mb-6 tracking-widest">RESULT</h2>
+
+                                            <div className="text-6xl mb-6 animate-bounce">
+                                                {myBets.some(b => b.payout! > 0) ? "🎉" : "💀"}
+                                            </div>
+
+                                            <div className="mb-8">
+                                                <p className="text-gray-400 text-xs mb-1">WINNER</p>
+                                                <p className="text-3xl font-bold text-white">
+                                                    {horses.find(h => h.id === race?.winnerId)?.name}
+                                                </p>
+                                            </div>
+
+                                            <div className="py-4 border-t border-gray-800 bg-gray-800/50 rounded-lg mb-6">
+                                                <p className="text-sm text-gray-400 mb-1">TOTAL PAYOUT</p>
+                                                <p className="text-4xl font-mono font-bold text-yellow-400">
+                                                    {myBets.reduce((sum, b) => sum + (b.payout || 0), 0).toLocaleString()} G
+                                                </p>
+                                            </div>
+
+                                            <button onClick={handleClose} className="w-full py-4 bg-gray-700 hover:bg-gray-600 rounded-lg font-bold transition-colors">
+                                                閉じる
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
