@@ -17,10 +17,14 @@ interface BoardClientProps {
     user: User;
 }
 
+/**
+ * ボードクライアント - GAS風ヘッダーデザイン
+ */
 export function BoardClient({ user }: BoardClientProps) {
     const { ui, toggleBulkMode, clearSelection, data, setEditingCard } = useBoardStore();
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
+    const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
     // 編集中のカードを取得
     const editingCard = ui.editingCardId && data
@@ -28,47 +32,68 @@ export function BoardClient({ user }: BoardClientProps) {
         : null;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900">
-            {/* ヘッダー */}
-            <header className="bg-white/10 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
-                <div className="max-w-[1920px] mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="min-h-screen bg-gray-100">
+            {/* ヘッダー - GAS風 */}
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+                {/* トップバー */}
+                <div className="max-w-[1920px] mx-auto px-4 py-2 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/" className="text-xl font-bold text-white flex items-center gap-2">
+                        {/* ロゴ */}
+                        <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-blue-600 transition-colors">
                             <span className="text-2xl">🫡</span>
-                            わく☆とれ
+                            <span className="text-lg font-bold">わく☆とれ</span>
+                            <span className="text-xs text-gray-400">v2.0</span>
                         </Link>
 
+                        {/* ヘッダー折りたたみ */}
+                        <button
+                            onClick={() => setHeaderCollapsed(!headerCollapsed)}
+                            className="p-1.5 hover:bg-gray-100 rounded text-gray-500"
+                            title="メニュー開閉"
+                        >
+                            <svg className={`w-5 h-5 transition-transform ${headerCollapsed ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* クイックアクション */}
+                    <div className="flex items-center gap-2">
                         {/* 一括操作ボタン */}
                         <button
                             onClick={toggleBulkMode}
-                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${ui.isBulkMode
+                            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1 ${ui.isBulkMode
                                 ? "bg-blue-500 text-white"
-                                : "bg-white/10 text-white/70 hover:bg-white/20"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                 }`}
                         >
-                            {ui.isBulkMode ? `✓ 一括選択中 (${selectedCount})` : "一括操作"}
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            {ui.isBulkMode ? `選択中 (${selectedCount})` : "選択モード"}
                         </button>
 
                         {ui.isBulkMode && selectedCount > 0 && (
-                            <div className="flex gap-2">
-                                <button className="px-3 py-1.5 bg-green-500/80 hover:bg-green-500 text-white rounded-lg text-sm transition-colors">
+                            <div className="flex gap-1">
+                                <button className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded text-sm font-medium transition-colors">
                                     移動
                                 </button>
                                 <button
                                     onClick={clearSelection}
-                                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 rounded-lg text-sm transition-colors"
+                                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm transition-colors"
                                 >
-                                    選択解除
+                                    解除
                                 </button>
                             </div>
                         )}
-                    </div>
 
-                    <div className="flex items-center gap-4">
-                        {/* リロードボタン */}
+                        {/* 区切り線 */}
+                        <div className="w-px h-6 bg-gray-200 mx-2" />
+
+                        {/* リロード */}
                         <button
                             onClick={() => window.location.reload()}
-                            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 transition-colors"
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
                             title="データ再読込"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,43 +109,67 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* メモボタン */}
                         <button
                             onClick={() => setShowMemoModal(true)}
-                            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 transition-colors"
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
                             title="メモ帳"
                         >
                             📝
                         </button>
 
+                        {/* ダッシュボード（TODO） */}
+                        <button
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                            title="ダッシュボード"
+                        >
+                            📊
+                        </button>
+
+                        {/* 設定（TODO） */}
+                        <button
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                            title="設定"
+                        >
+                            ⚙️
+                        </button>
+
+                        {/* 区切り線 */}
+                        <div className="w-px h-6 bg-gray-200 mx-2" />
+
                         {/* ユーザー情報 */}
-                        <div className="flex items-center gap-2 text-white/80">
-                            <span className="text-sm">{user.name || user.email}</span>
+                        <div className="flex items-center gap-2 text-gray-700">
+                            <span className="text-sm font-medium">{user.name || user.email}</span>
                         </div>
 
                         {/* ログアウト */}
                         <form action="/api/auth/sign-out" method="POST">
                             <button
                                 type="submit"
-                                className="px-3 py-1.5 text-sm bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors"
+                                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded transition-colors"
                             >
                                 ログアウト
                             </button>
                         </form>
                     </div>
                 </div>
+
+                {/* フィルターバー - 折りたたみ可能 */}
+                {!headerCollapsed && (
+                    <div className="border-t border-gray-100 bg-gray-50">
+                        <div className="max-w-[1920px] mx-auto px-4 py-2">
+                            <FilterBar />
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* メインコンテンツ */}
-            <main className="max-w-[1920px] mx-auto px-4 py-6">
-                {/* フィルターバー */}
-                <FilterBar />
-
-                {/* ボードビュー */}
+            <main className="max-w-[1920px] mx-auto px-4 py-4">
                 <BoardView />
             </main>
 
             {/* 非表示リスト復元ボタン */}
             {data && ui.hiddenListIds.size > 0 && (
-                <div className="fixed bottom-4 left-4 bg-white/10 backdrop-blur-md rounded-lg p-3 border border-white/20">
-                    <p className="text-xs text-white/60 mb-2">
+                <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 border border-gray-200">
+                    <p className="text-xs text-gray-500 mb-2">
                         非表示リスト: {ui.hiddenListIds.size}
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -130,7 +179,7 @@ export function BoardClient({ user }: BoardClientProps) {
                                 <button
                                     key={listId}
                                     onClick={() => useBoardStore.getState().toggleListVisibility(listId)}
-                                    className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white text-xs rounded transition-colors"
+                                    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs rounded transition-colors"
                                 >
                                     {list?.name || listId} ×
                                 </button>
@@ -158,4 +207,3 @@ export function BoardClient({ user }: BoardClientProps) {
         </div>
     );
 }
-

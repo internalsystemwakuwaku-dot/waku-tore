@@ -35,7 +35,7 @@ export function BoardView() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="flex items-center gap-3 text-white/60">
+                <div className="flex items-center gap-3 text-gray-500">
                     <svg
                         className="animate-spin h-6 w-6"
                         viewBox="0 0 24 24"
@@ -64,7 +64,7 @@ export function BoardView() {
     // エラー
     if (error) {
         return (
-            <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                 <p className="font-semibold">エラーが発生しました</p>
                 <p className="text-sm mt-1">{error}</p>
             </div>
@@ -74,7 +74,7 @@ export function BoardView() {
     // データなし
     if (!data) {
         return (
-            <div className="text-center text-white/60 py-12">
+            <div className="text-center text-gray-500 py-12">
                 <p>データがありません</p>
             </div>
         );
@@ -95,12 +95,12 @@ export function BoardView() {
     }
 
     return (
-        <div className="overflow-x-auto pb-4">
+        <div className="overflow-x-auto pb-4 -mx-4 px-4">
             <div className="flex gap-4 min-w-max">
                 {data.lists
                     .filter((list) => !ui.hiddenListIds.has(list.id))
                     .map((list) => (
-                        <ListView
+                        <ListColumn
                             key={list.id}
                             list={list}
                             cards={cardsByList.get(list.id) || []}
@@ -113,8 +113,8 @@ export function BoardView() {
     );
 }
 
-// リストビューコンポーネント
-interface ListViewProps {
+// リストカラムコンポーネント - GAS風デザイン
+interface ListColumnProps {
     list: TrelloListInfo;
     cards: ReturnType<typeof useBoardStore.getState>["getFilteredCards"] extends () => infer R
     ? R
@@ -123,25 +123,39 @@ interface ListViewProps {
     overdueMemoCardIds: string[];
 }
 
-function ListView({ list, cards, isUnlocked, overdueMemoCardIds }: ListViewProps) {
+function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnProps) {
     const { toggleListLock, toggleListVisibility } = useBoardStore();
 
+    // リスト名の色分け（GAS風）
+    const getListColor = () => {
+        const name = list.name.toLowerCase();
+        if (name.includes("完了") || name.includes("done")) return "bg-green-500";
+        if (name.includes("進行") || name.includes("doing") || name.includes("wip")) return "bg-blue-500";
+        if (name.includes("待機") || name.includes("待ち") || name.includes("pending")) return "bg-yellow-500";
+        if (name.includes("未着手") || name.includes("todo")) return "bg-gray-400";
+        return "bg-indigo-500";
+    };
+
     return (
-        <div className="w-72 flex-shrink-0">
-            {/* リストヘッダー */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-t-lg px-3 py-2 flex items-center justify-between border-b border-white/10">
-                <h3 className="font-semibold text-white text-sm truncate flex-1">
-                    {list.name}
-                </h3>
-                <div className="flex items-center gap-1">
-                    <span className="text-xs text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
+        <div className="w-80 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg shadow-sm border border-gray-200">
+            {/* リストヘッダー - GAS風 */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white rounded-t-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-3 h-3 rounded-full ${getListColor()}`} />
+                    <h3 className="font-semibold text-gray-800 text-sm truncate">
+                        {list.name}
+                    </h3>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
                         {cards.length}
                     </span>
+                </div>
+                <div className="flex items-center gap-1">
+                    {/* ロック切替 */}
                     <button
                         onClick={() => toggleListLock(list.id)}
-                        className={`p-1 rounded hover:bg-white/10 transition-colors ${isUnlocked ? "text-green-400" : "text-white/40"
+                        className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${isUnlocked ? "text-green-600" : "text-gray-400"
                             }`}
-                        title={isUnlocked ? "ロック" : "アンロック"}
+                        title={isUnlocked ? "ロック" : "アンロック（移動可能）"}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             {isUnlocked ? (
@@ -161,9 +175,10 @@ function ListView({ list, cards, isUnlocked, overdueMemoCardIds }: ListViewProps
                             )}
                         </svg>
                     </button>
+                    {/* 非表示 */}
                     <button
                         onClick={() => toggleListVisibility(list.id)}
-                        className="p-1 rounded hover:bg-white/10 text-white/40 transition-colors"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                         title="非表示"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,9 +194,9 @@ function ListView({ list, cards, isUnlocked, overdueMemoCardIds }: ListViewProps
             </div>
 
             {/* カードリスト */}
-            <div className="bg-white/5 rounded-b-lg p-2 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+            <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
                 {cards.length === 0 ? (
-                    <p className="text-center text-white/30 text-sm py-4">カードなし</p>
+                    <p className="text-center text-gray-400 text-sm py-8">カードなし</p>
                 ) : (
                     cards.map((card) => (
                         <CardItem
