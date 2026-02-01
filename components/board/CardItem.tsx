@@ -15,9 +15,10 @@ interface CardItemProps {
  * 白背景、明瞭な情報表示、ホバーエフェクト
  * DnD対応 (useSortable)
  */
-export function CardItem({ card, hasOverdueMemo }: CardItemProps) {
+export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps) {
     const { ui, toggleCardSelection, setEditingCard } = useBoardStore();
     const isSelected = ui.selectedCardIds.has(card.id);
+    const hasOverdueMemo = propHasOverdue || ui.overdueCardIds?.has(card.id);
 
     // DnD hook
     const {

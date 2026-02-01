@@ -6,8 +6,8 @@
  */
 
 import { db } from "@/lib/db/client";
-import { gameData } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { gameData, transactions, keibaTransactions } from "@/lib/db/schema";
+import { eq, sql, desc } from "drizzle-orm";
 import type { GameData, XpEventType, RankingEntry } from "@/types/game";
 import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/types/game";
 
@@ -32,6 +32,15 @@ export async function getGameData(userId: string): Promise<GameData> {
     await db.insert(gameData).values({
         userId,
         dataJson: JSON.stringify(newData),
+    });
+
+    // M-12: 初期所持金の記録
+    await db.insert(transactions).values({
+        userId,
+        type: "INITIAL",
+        amount: newData.money, // 10000
+        description: "初期所持金",
+        balanceAfter: newData.money
     });
 
     return newData;
@@ -76,33 +85,41 @@ export async function earnXp(
     reward?: { money: number; unlock?: string };
 }> {
     try {
-        const data = await getGameData(userId);
+        let data = await getGameData(userId);
         const baseXp = XP_REWARDS[eventType] || 0;
         const xpGained = Math.floor(baseXp * multiplier);
-
-        data.xp += xpGained;
 
         // レベルアップチェック
         let levelUp = false;
         let newLevel: number | undefined;
         let reward: { money: number; unlock?: string } | undefined;
 
+        // 現在のXP + 獲得XP で判定
+        const currentTotalXp = data.xp + xpGained;
         const nextLevel = data.level + 1;
         const requiredXp = LEVEL_TABLE[nextLevel] || (LEVEL_TABLE[20] + (nextLevel - 20) * 3000);
 
-        if (data.xp >= requiredXp) {
+        if (currentTotalXp >= requiredXp) {
+            // レベル報酬をチェック
+            const levelReward = LEVEL_REWARDS.find((r) => r.level === nextLevel);
+
+            if (levelReward && levelReward.reward.money > 0) {
+                // M-12: お金付与を Ledger 経由で実行
+                await transactMoney(userId, levelReward.reward.money, `レベルアップ報酬 (Lv.${nextLevel})`, "LEVEL_UP");
+                // データ再取得 (お金更新後)
+                data = await getGameData(userId);
+                reward = levelReward.reward;
+            } else if (levelReward) {
+                reward = levelReward.reward;
+            }
+
             data.level = nextLevel;
             levelUp = true;
             newLevel = nextLevel;
-
-            // レベル報酬をチェック
-            const levelReward = LEVEL_REWARDS.find((r) => r.level === nextLevel);
-            if (levelReward) {
-                data.money += levelReward.reward.money;
-                data.totalEarned += levelReward.reward.money;
-                reward = levelReward.reward;
-            }
         }
+
+        // XP加算
+        data.xp += xpGained;
 
         // 統計更新
         if (eventType === "card_move") data.stats.cardsMoved++;
@@ -121,11 +138,13 @@ export async function earnXp(
 /**
  * 所持金を増減
  * M-10: 日次借金制限 (1日10,000Gまで) 対応
+ * M-12: 取引台帳 (transactions) への記録対応
  */
 export async function transactMoney(
     userId: string,
     amount: number,
-    description: string
+    description: string,
+    type: string = "GENERAL"
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
     try {
         const data = await getGameData(userId);
@@ -136,18 +155,21 @@ export async function transactMoney(
             return { success: false, error: `資金不足です (借金上限: ${DEBT_LIMIT.toLocaleString()}G)` };
         }
 
-        // 日次借金制限チェック (M-10対応)
-        const DAILY_LOAN_LIMIT = 10000;
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-        // 日付が変わっていたらリセット
-        if (data.lastLoanDate !== today) {
-            data.lastLoanDate = today;
-            data.todayLoanAmount = 0;
-        }
-
-        // 借金（マイナス amount）の場合、日次制限をチェック
+        // 日次借金制限チェック (LOANの場合のみ)
+        // GASでは type === 'LOAN' で判定しているが、借金(マイナス)全般に適用すべきか？
+        // M-10実装では「借金（マイナス amount）の場合」としている。
+        // typeパラメータが来たので、明示的なLOAN以外でもマイナスならチェックする方針は維持しつつ、
+        // ログは正確に残す。
         if (amount < 0 && data.money + amount < 0) {
+            const DAILY_LOAN_LIMIT = 10000;
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+            // 日付が変わっていたらリセット
+            if (data.lastLoanDate !== today) {
+                data.lastLoanDate = today;
+                data.todayLoanAmount = 0;
+            }
+
             // 実際に借入となる額を計算
             const actualLoan = Math.abs(Math.min(0, data.money + amount));
             const todayTotal = (data.todayLoanAmount || 0) + actualLoan;
@@ -171,6 +193,15 @@ export async function transactMoney(
 
         await saveGameData(userId, data);
 
+        // M-12: 取引台帳へ記録
+        await db.insert(transactions).values({
+            userId,
+            type,
+            amount,
+            description,
+            balanceAfter: data.money
+        });
+
         return { success: true, newBalance: data.money };
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -186,13 +217,14 @@ export async function purchaseItem(
     price: number
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        const data = await getGameData(userId);
-
-        if (data.money < price) {
-            return { success: false, error: "所持金が不足しています" };
+        // 1. お金を引き落とす (Transaction Ledger経由)
+        const tx = await transactMoney(userId, -price, `アイテム購入: ${itemId}`, "ITEM_PURCHASE");
+        if (!tx.success) {
+            return { success: false, error: tx.error || "所持金が不足しています" };
         }
 
-        data.money -= price;
+        // 2. データを再取得してインベントリ更新 (お金は更新済み)
+        const data = await getGameData(userId);
         data.inventory[itemId] = (data.inventory[itemId] || 0) + 1;
 
         await saveGameData(userId, data);
@@ -244,14 +276,31 @@ export async function claimDailyBonus(
         const xpGained = baseXp + streakBonus;
         data.xp += xpGained;
 
-        // 所持金ボーナス（7日連続で増加）
         const moneyGained = Math.min(data.streak, 7) * 10;
-        data.money += moneyGained;
-        data.totalEarned += moneyGained;
 
-        await saveGameData(userId, data);
+        // 所持金付与を TransactMoney 経由で実行 (M-12 Ledger対応)
+        // 先にメモリ上の日付/ストリークを更新してから、お金を処理し、最後に全て保存...
+        // いや、transactMoneyで保存が発生するので、順番に注意。
 
-        return { success: true, xpGained, moneyGained, streak: data.streak };
+        // 1. お金以外を先に処理してしまうと、transactMoneyで上書きされる可能性がある。
+        // なので、まずお金を付与。
+        await transactMoney(userId, moneyGained, "デイリーボーナス", "DAILY_BONUS");
+
+        // 2. データを再取得 (お金更新後)
+        const updatedData = await getGameData(userId);
+
+        // 3. ストリークなどの情報を更新
+        updatedData.lastDailyBonus = today;
+        updatedData.stats.logins++; // これは単純加算でよいか？ streak判定は元データ`data`で行ったが...
+        // streak判定ロジックは変えず、updatedDataに適用する
+        updatedData.streak = data.streak; // 事前に計算したstreak値をセット
+
+        // XP獲得
+        updatedData.xp += xpGained;
+
+        await saveGameData(userId, updatedData);
+
+        return { success: true, xpGained, moneyGained, streak: updatedData.streak };
     } catch {
         return { success: false };
     }
@@ -331,33 +380,43 @@ export async function updateGameSettings(
  * 残高整合性チェック (Gap M-8対応)
  * keibaTransactions から残高を再計算し、gameData.money と照合
  */
-import { keibaTransactions } from "@/lib/db/schema";
-import { sql } from "drizzle-orm";
+// 348行目の重複importは削除
+// import { keibaTransactions } from "@/lib/db/schema"; <-- Remove this line in replacement or just ignore if valid?
+// Better to just reimplement the function cleanly.
 
 export async function reconcileBalance(
     userId: string
-): Promise<{ success: boolean; balance: number; mismatch?: boolean; reconciled?: boolean }> {
+): Promise<{ success: boolean; balance: number; mismatch?: boolean; reconciled?: boolean; message?: string }> {
     try {
         const data = await getGameData(userId);
 
-        // 初期残高 (DEFAULT_GAME_DATA.money)
-        const INITIAL_BALANCE = 10000;
-
-        // トランザクション合計 (payout - betAmount の総和)
-        const txResult = await db
+        // M-12: transactionsテーブルから集計
+        const result = await db
             .select({
-                totalBet: sql<number>`COALESCE(SUM(${keibaTransactions.betAmount}), 0)`,
-                totalPayout: sql<number>`COALESCE(SUM(${keibaTransactions.payout}), 0)`,
+                total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+                count: sql<number>`COUNT(${transactions.id})`,
+                hasInitial: sql<number>`SUM(CASE WHEN ${transactions.type} = 'INITIAL' THEN 1 ELSE 0 END)`
             })
-            .from(keibaTransactions)
-            .where(eq(keibaTransactions.userId, userId))
+            .from(transactions)
+            .where(eq(transactions.userId, userId))
             .then(res => res[0]);
 
-        const totalBet = txResult?.totalBet || 0;
-        const totalPayout = txResult?.totalPayout || 0;
-        const calculatedBalance = INITIAL_BALANCE - totalBet + totalPayout;
+        let calculatedBalance = result.total;
 
-        // 現在の残高と比較
+        // レガシーデータ対応: INITIAL取引がなく、かつ残高が整合しない場合
+        // 取引履歴が途中から始まっているユーザーへの簡易対応
+        // (厳密には「不明」だが、初期金10000G + 履歴 と仮定して比較することも可能)
+        if ((!result.hasInitial || result.hasInitial === 0) && result.count > 0) {
+            // 履歴はあるが初期金レコードがない -> 移行ユーザーの可能性
+            // ここでは「不整合」として報告するが、メッセージを付与
+            return {
+                success: true,
+                balance: data.money,
+                mismatch: data.money !== calculatedBalance,
+                message: "Legacy user: Missing INITIAL transaction"
+            };
+        }
+
         const currentBalance = data.money;
         const mismatch = currentBalance !== calculatedBalance;
 
@@ -375,3 +434,49 @@ export async function reconcileBalance(
     }
 }
 
+
+/**
+ * 借金ランキング（所持金マイナス順）
+ */
+export async function getDebtRanking(limit: number = 20): Promise<RankingEntry[]> {
+    const allData = await db.select().from(gameData);
+
+    const entries = allData
+        .map((row) => {
+            const data = JSON.parse(row.dataJson) as GameData;
+            return {
+                userId: row.userId,
+                userName: row.userId,
+                value: data.money,
+                rank: 0,
+            };
+        })
+        .filter(entry => entry.value < 0)
+        .sort((a, b) => a.value - b.value) // Ascending (Example: -10000 < -100 works for negative numbers? -10000 - (-100) = -9900. Ascending order means smallest first, i.e. largest debt first. Correct.)
+        .slice(0, limit);
+
+    entries.forEach((entry, index) => {
+        entry.rank = index + 1;
+    });
+
+    return entries;
+}
+
+/**
+ * 高額配当ランキング
+ */
+export async function getPayoutRanking(limit: number = 20): Promise<RankingEntry[]> {
+    const records = await db
+        .select()
+        .from(keibaTransactions)
+        .where(eq(keibaTransactions.isWin, true))
+        .orderBy(desc(keibaTransactions.payout))
+        .limit(limit);
+
+    return records.map((r, i) => ({
+        userId: r.userId,
+        userName: r.userId,
+        value: r.payout,
+        rank: i + 1,
+    }));
+}

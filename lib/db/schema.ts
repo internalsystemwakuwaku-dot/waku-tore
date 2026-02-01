@@ -143,6 +143,17 @@ export const keibaTransactions = sqliteTable("keiba_transactions", {
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// 金銭取引台帳 (M-12 Strict Ledger)
+export const transactions = sqliteTable("transactions", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(),
+    type: text("type").notNull(), // BET, PAYOUT, LOAN, GACHA, BONUS etc.
+    amount: integer("amount").notNull(),
+    description: text("description"),
+    balanceAfter: integer("balance_after").notNull(),
+    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 // ガチャ記録
 export const gachaRecords = sqliteTable("gacha_records", {
     id: integer("id").primaryKey({ autoIncrement: true }),

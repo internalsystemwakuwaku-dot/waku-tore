@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getXpRanking, getMoneyRanking } from "@/app/actions/game";
+import { getXpRanking, getMoneyRanking, getDebtRanking, getPayoutRanking } from "@/app/actions/game";
 import type { RankingEntry } from "@/types/game";
 
 interface RankingModalProps {
@@ -13,9 +13,11 @@ interface RankingModalProps {
 export function RankingModal({ isOpen, currentUserId, onClose }: RankingModalProps) {
     if (!isOpen) return null;
 
-    const [activeTab, setActiveTab] = useState<"xp" | "money">("xp");
+    const [activeTab, setActiveTab] = useState<"xp" | "money" | "debt" | "payout">("xp");
     const [xpRanking, setXpRanking] = useState<RankingEntry[]>([]);
     const [moneyRanking, setMoneyRanking] = useState<RankingEntry[]>([]);
+    const [debtRanking, setDebtRanking] = useState<RankingEntry[]>([]);
+    const [payoutRanking, setPayoutRanking] = useState<RankingEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -25,12 +27,16 @@ export function RankingModal({ isOpen, currentUserId, onClose }: RankingModalPro
     const loadRankings = async () => {
         setIsLoading(true);
         try {
-            const [xp, money] = await Promise.all([
+            const [xp, money, debt, payout] = await Promise.all([
                 getXpRanking(20),
                 getMoneyRanking(20),
+                getDebtRanking(20),
+                getPayoutRanking(20),
             ]);
             setXpRanking(xp);
             setMoneyRanking(money);
+            setDebtRanking(debt);
+            setPayoutRanking(payout);
         } catch (e) {
             console.error("ランキング取得エラー:", e);
         } finally {
@@ -52,7 +58,11 @@ export function RankingModal({ isOpen, currentUserId, onClose }: RankingModalPro
         return "bg-white/5 border-white/10";
     };
 
-    const activeRanking = activeTab === "xp" ? xpRanking : moneyRanking;
+    let activeRanking: RankingEntry[] = [];
+    if (activeTab === "xp") activeRanking = xpRanking;
+    if (activeTab === "money") activeRanking = moneyRanking;
+    if (activeTab === "debt") activeRanking = debtRanking;
+    if (activeTab === "payout") activeRanking = payoutRanking;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -92,7 +102,25 @@ export function RankingModal({ isOpen, currentUserId, onClose }: RankingModalPro
                             : "text-white/60 hover:text-white"
                             }`}
                     >
-                        💰 所持金ランキング
+                        💰 所持金
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("debt")}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === "debt"
+                            ? "text-red-400 border-b-2 border-red-400"
+                            : "text-white/60 hover:text-white"
+                            }`}
+                    >
+                        💸 借金王
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("payout")}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === "payout"
+                            ? "text-green-400 border-b-2 border-green-400"
+                            : "text-white/60 hover:text-white"
+                            }`}
+                    >
+                        🎯 高配当
                     </button>
                 </div>
 

@@ -8,8 +8,9 @@
  */
 
 import { db } from "@/lib/db/client";
-import { keibaRaces, keibaTransactions, gachaRecords, gameData } from "@/lib/db/schema";
+import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { logActivity } from "./log";
 import type {
     Race,
     Bet,
@@ -28,22 +29,52 @@ import { transactMoney, earnXp } from "./game";
 /**
  * 現在の有効なレースを取得（なければ作成）- グローバル版
  */
+const RACE_SCHEDULE = [
+    { h: 9, m: 55 }, { h: 10, m: 55 }, { h: 11, m: 55 }, { h: 12, m: 30 },
+    { h: 13, m: 55 }, { h: 14, m: 55 }, { h: 15, m: 55 }, { h: 16, m: 55 }, { h: 17, m: 55 }
+];
+
+/**
+ * 現在の有効なレースを取得（なければ作成）- グローバル版
+ * M-13: GASスケジュール同期 (9:55, 10:55... 17:55)
+ */
 export async function getActiveRace(userId: string): Promise<{ race: Race; myBets: Bet[] }> {
     const now = new Date();
-    // スケジュール: 毎時00分発走
-    const currentHour = now.getHours();
-    const nextHour = currentHour + 1;
 
-    // レースIDは "YYYYMMDD_HH00" 形式
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    const h = String(nextHour).padStart(2, "0");
-    const raceId = `${y}${m}${d}_${h}00`;
+    // 次のレースを探す
+    let nextRaceConfig = null;
+    let raceDate = new Date(now);
 
-    // 発走予定時刻
-    const scheduledTime = new Date(now);
-    scheduledTime.setHours(nextHour, 0, 0, 0);
+    const currentH = now.getHours();
+    const currentM = now.getMinutes();
+
+    // 今日の残りのレースから検索
+    for (const s of RACE_SCHEDULE) {
+        if (s.h > currentH || (s.h === currentH && s.m > currentM)) {
+            nextRaceConfig = s;
+            break;
+        }
+    }
+
+    // 今日の分が終わっていれば明日の最初のレース
+    if (!nextRaceConfig) {
+        nextRaceConfig = RACE_SCHEDULE[0];
+        raceDate.setDate(raceDate.getDate() + 1);
+    }
+
+    // 発走日時設定
+    raceDate.setHours(nextRaceConfig.h, nextRaceConfig.m, 0, 0);
+
+    // ID生成: YYYYMMDD_HHMM
+    const y = raceDate.getFullYear();
+    const m = String(raceDate.getMonth() + 1).padStart(2, "0");
+    const d = String(raceDate.getDate()).padStart(2, "0");
+    const hh = String(nextRaceConfig.h).padStart(2, "0");
+    const mm = String(nextRaceConfig.m).padStart(2, "0");
+
+    // M-13: IDに分を含める
+    const raceId = `${y}${m}${d}_${hh}${mm}`;
+    const scheduledTime = raceDate; // Date object
 
     // DB確認
     let raceData = await db
@@ -58,7 +89,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         const horses: Horse[] = DEFAULT_HORSES.map((h) => ({
             ...h,
             odds: Math.round((h.odds + (Math.random() - 0.5) * 0.5) * 10) / 10,
-            winRate: h.winRate // 型定義にある通り
+            winRate: h.winRate
         }));
 
         const name = generateRaceName();
@@ -84,7 +115,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
             winnerId: null,
             resultsJson: null,
             finishedAt: null,
-            createdAt: now.toISOString(),
+            createdAt: now.toISOString(), // 作成日時（現在）
         };
     }
 
@@ -159,7 +190,7 @@ export async function placeBet(
     const totalAmount = bets.reduce((sum, b) => sum + b.amount, 0);
 
     // 所持金チェック & 引き落とし
-    const tx = await transactMoney(userId, -totalAmount, `競馬投票: ${race.name}`);
+    const tx = await transactMoney(userId, -totalAmount, `競馬投票: ${race.name}`, "BET");
     if (!tx.success) return { success: false, error: tx.error };
 
     // ベット保存
@@ -175,6 +206,9 @@ export async function placeBet(
             isWin: false,
         });
     }
+
+    // M-16: ログ記録
+    await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`);
 
     return { success: true };
 }
@@ -319,7 +353,7 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 .where(eq(keibaTransactions.id, bet.id));
 
             // ユーザーに払い戻し
-            await transactMoney(bet.userId, payout, `競馬配当: ${raceId} (${bet.type})`);
+            await transactMoney(bet.userId, payout, `競馬配当: ${raceId} (${bet.type})`, "PAYOUT");
 
             // XP付与
             await earnXp(bet.userId, "race_win");
@@ -434,7 +468,7 @@ export async function pullGacha(
     const totalCost = pool.cost * count;
 
     // 費用を差し引く
-    const deductResult = await transactMoney(userId, -totalCost, "ガチャ");
+    const deductResult = await transactMoney(userId, -totalCost, "ガチャ", "GACHA");
     if (!deductResult.success) {
         return { success: false, error: deductResult.error };
     }
@@ -469,6 +503,9 @@ export async function pullGacha(
 
         // XP獲得
         await earnXp(userId, "gacha_play");
+
+        // M-16: ログ記録
+        await logActivity(userId, `ガチャ獲得: ${item.name} (${item.rarity})`);
 
         // アイテム効果を適用
         await applyGachaItemEffect(userId, item);
@@ -548,7 +585,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         };
         const amount = amounts[item.id] || 0;
         if (amount > 0) {
-            await transactMoney(userId, amount, `ガチャ獲得: ${item.name}`);
+            await transactMoney(userId, amount, `ガチャ獲得: ${item.name}`, "GACHA_ITEM");
         }
     }
 

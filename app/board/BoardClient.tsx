@@ -24,6 +24,7 @@ import { ToastContainer } from "@/components/ui/Toast";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { ThemeBackground } from "@/components/ui/ThemeBackground";
 import Link from "next/link";
+import { getOverdueMemoCardIds } from "@/app/actions/memo";
 
 interface User {
     id: string;
@@ -39,7 +40,7 @@ interface BoardClientProps {
  * ボードクライアント - GAS風ヘッダーデザイン
  */
 export function BoardClient({ user }: BoardClientProps) {
-    const { ui, toggleBulkMode, clearSelection, data, setEditingCard } = useBoardStore();
+    const { ui, toggleBulkMode, clearSelection, data, setEditingCard, setOverdueCardIds } = useBoardStore();
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -62,6 +63,17 @@ export function BoardClient({ user }: BoardClientProps) {
         }, 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // M-14: 期限切れメモを定期チェック
+    useEffect(() => {
+        const checkOverdue = async () => {
+            const ids = await getOverdueMemoCardIds();
+            setOverdueCardIds(ids);
+        };
+        checkOverdue();
+        const timer = setInterval(checkOverdue, 60000); // 1分毎
+        return () => clearInterval(timer);
+    }, [setOverdueCardIds]);
 
     // 編集中のカードを取得
     const editingCard = ui.editingCardId && data

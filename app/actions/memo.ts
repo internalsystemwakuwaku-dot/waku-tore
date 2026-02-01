@@ -2,8 +2,9 @@
 
 import { db } from "@/lib/db/client";
 import { memos } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt, isNotNull } from "drizzle-orm";
 import { addTrelloComment, deleteTrelloComment } from "./trello";
+import { logActivity } from "./log";
 
 export type MemoType = "personal" | "shared" | "card";
 
@@ -119,6 +120,9 @@ export async function addCardMemo(
             trelloCommentId: trelloResult.commentId || null,
         });
 
+        // M-16: ログ記録
+        await logActivity(userId, "メモ作成", cardId);
+
         return { success: true };
     } catch (e) {
         return {
@@ -142,6 +146,9 @@ export async function toggleMemoStatus(memoId: string): Promise<{ success: boole
         await db.update(memos)
             .set({ isFinished: newStatus })
             .where(eq(memos.id, memoId));
+
+        // M-16: ログ記録
+        await logActivity(memo[0].userId, `メモ${newStatus ? "完了" : "未完了"}`, memo[0].cardId);
 
         return { success: true };
     } catch (e) {
@@ -173,11 +180,41 @@ export async function deleteCardMemo(memoId: string): Promise<{ success: boolean
         // 3. DBから削除
         await db.delete(memos).where(eq(memos.id, memoId));
 
+        // M-16: ログ記録
+        await logActivity(memo[0].userId, "メモ削除", memo[0].cardId);
+
         return { success: true };
     } catch (e) {
         return {
             success: false,
             error: e instanceof Error ? e.message : String(e),
         };
+    }
+}
+
+/**
+ * 期限切れメモがあるカードIDを取得 (M-14)
+ */
+export async function getOverdueMemoCardIds(): Promise<string[]> {
+    try {
+        const now = new Date().toISOString();
+
+        const overdueMemos = await db
+            .select({ cardId: memos.cardId })
+            .from(memos)
+            .where(
+                and(
+                    eq(memos.type, "card"),
+                    eq(memos.isFinished, false),
+                    isNotNull(memos.notifyTime),
+                    lt(memos.notifyTime, now)
+                )
+            );
+
+        const ids = new Set(overdueMemos.map(m => m.cardId).filter(id => id !== null));
+        return Array.from(ids) as string[];
+    } catch (e) {
+        console.error("getOverdueMemoCardIds error:", e);
+        return [];
     }
 }

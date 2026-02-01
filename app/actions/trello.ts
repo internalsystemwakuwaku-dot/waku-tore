@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/db/client";
 import { assignments, activityLogs, memos } from "@/lib/db/schema";
 import { eq, and, lt, isNull, or } from "drizzle-orm";
+import { logActivity } from "./log";
 import type {
     BoardData,
     TrelloDataResponse,
@@ -277,11 +278,7 @@ export async function moveCardToList(
 
         // ログ記録（引数が渡された場合のみ）
         if (userId && cardName && listName) {
-            await db.insert(activityLogs).values({
-                userId,
-                action: `移動: ${cardName} -> ${listName}`,
-                cardId,
-            });
+            await logActivity(userId, `移動: ${cardName} -> ${listName}`, cardId);
         }
 
         return { success: true };
@@ -557,12 +554,9 @@ export async function updateTrelloDescription(
         await trelloUpdateDesc(cardId, description);
 
         // ログ記録
+        // ログ記録
         if (userId) {
-            await db.insert(activityLogs).values({
-                userId,
-                action: `説明文更新: ${cardId.substring(0, 8)}...`,
-                cardId,
-            });
+            await logActivity(userId, `説明文更新: ${cardId.substring(0, 8)}...`, cardId);
         }
 
         return { success: true };
