@@ -107,6 +107,10 @@ interface GameState {
     getLevelProgress: () => { current: number; required: number; percent: number };
     canAfford: (price: number) => boolean;
     getOwnedCount: (itemId: string) => number;
+
+    // ゲームアクション
+    addXP: (amount: number) => void;
+    addMoney: (amount: number) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -156,6 +160,40 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     canAfford: (price) => get().data.money >= price,
     getOwnedCount: (itemId) => get().data.inventory[itemId] || 0,
+
+    // XP追加（レベルアップチェック付き）
+    addXP: (amount) => {
+        const { data } = get();
+        const newXp = data.xp + amount;
+
+        // レベルアップ判定
+        const newLevel = calculateLevel(newXp);
+        const didLevelUp = newLevel > data.level;
+
+        set({
+            data: {
+                ...data,
+                xp: newXp,
+                level: newLevel,
+                money: didLevelUp ? data.money + 100 : data.money, // レベルアップ報酬
+            },
+        });
+
+        if (didLevelUp) {
+            get().showLevelUpModal({ money: 100 });
+        }
+    },
+
+    // お金追加
+    addMoney: (amount) => {
+        const { data } = get();
+        set({
+            data: {
+                ...data,
+                money: Math.max(0, data.money + amount),
+            },
+        });
+    },
 }));
 
 // レベルに必要なXPを取得
@@ -183,4 +221,18 @@ function getLevelXp(level: number): number {
         20: 20200,
     };
     return table[level] || 0;
+}
+
+// XPからレベルを計算
+function calculateLevel(xp: number): number {
+    let level = 1;
+    while (level <= 20 && getLevelXp(level + 1) <= xp) {
+        level++;
+    }
+    if (level > 20) {
+        // レベル21以降は線形増加
+        const xpAfter20 = xp - getLevelXp(20);
+        level = 20 + Math.floor(xpAfter20 / 3000);
+    }
+    return level;
 }

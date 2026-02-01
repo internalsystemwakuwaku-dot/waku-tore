@@ -6,6 +6,7 @@ import { FilterBar } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
 import { useBoardStore } from "@/stores/boardStore";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
+import { GameStatusBar } from "@/components/game/GameStatusBar";
 import Link from "next/link";
 
 interface User {
@@ -56,6 +57,9 @@ export function BoardClient({ user }: BoardClientProps) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                             </svg>
                         </button>
+
+                        {/* ゲームステータスバー */}
+                        <GameStatusBar />
                     </div>
 
                     {/* クイックアクション */}
