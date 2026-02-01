@@ -267,19 +267,21 @@ async function getOverdueMemoCardIds(): Promise<string[]> {
 export async function moveCardToList(
     cardId: string,
     newListId: string,
-    userId: string,
-    cardName: string,
-    listName: string
+    userId?: string,
+    cardName?: string,
+    listName?: string
 ): Promise<{ success: boolean; error?: string }> {
     try {
         await trelloMoveCard(cardId, newListId);
 
-        // ログ記録
-        await db.insert(activityLogs).values({
-            userId,
-            action: `移動: ${cardName} -> ${listName}`,
-            cardId,
-        });
+        // ログ記録（引数が渡された場合のみ）
+        if (userId && cardName && listName) {
+            await db.insert(activityLogs).values({
+                userId,
+                action: `移動: ${cardName} -> ${listName}`,
+                cardId,
+            });
+        }
 
         return { success: true };
     } catch (e) {
