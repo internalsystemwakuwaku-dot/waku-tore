@@ -245,7 +245,7 @@ export function BoardClient({ user }: BoardClientProps) {
 
             {/* メインコンテンツ */}
             <main className="max-w-[1920px] mx-auto px-4 py-4">
-                <BoardView />
+                <BoardView user={user} />
             </main>
 
             {/* 非表示リスト復元ボタン */}
@@ -275,6 +275,7 @@ export function BoardClient({ user }: BoardClientProps) {
             {editingCard && (
                 <CardModal
                     card={editingCard}
+                    userId={user.id}
                     onClose={() => setEditingCard(null)}
                     onOpenLog={(id, name) => setShowCardLogModal({ id, name })}
                 />

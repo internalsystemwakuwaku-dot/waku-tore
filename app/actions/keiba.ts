@@ -9,7 +9,7 @@
 
 import { db } from "@/lib/db/client";
 import { keibaRaces, keibaTransactions, gachaRecords, gameData } from "@/lib/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import type {
     Race,
     Bet,
@@ -216,7 +216,7 @@ async function resolveRace(raceId: string) {
 }
 
 /**
- * 配当処理（バッチ）
+ * 配当処理（バッチ） - 全賭け式対応版 (Gap M-9)
  */
 async function processPayouts(raceId: string, ranking: number[], horses: Horse[]) {
     // このレースの全ベット取得
@@ -225,37 +225,89 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
         .from(keibaTransactions)
         .where(eq(keibaTransactions.raceId, raceId));
 
-    const winnerId = ranking[0];
-    const top3 = ranking.slice(0, 3);
-    const winner = horses.find(h => h.id === winnerId);
-    if (!winner) return;
+    const r1 = ranking[0]; // 1着
+    const r2 = ranking[1]; // 2着
+    const r3 = ranking[2]; // 3着
+    const top3Set = new Set([r1, r2, r3]);
 
     for (const bet of bets) {
         let isWin = false;
         let payout = 0;
 
+        // 賭け目の詳細をパース (複雑なベットの場合)
+        let betHorses: number[] = [];
+        let betOdds = 1.0;
+        if (bet.details) {
+            try {
+                const details = JSON.parse(bet.details);
+                betHorses = details.horses || [];
+                betOdds = details.odds || 1.0;
+            } catch {
+                // detailsパース失敗時はhorseId使用
+            }
+        }
+        // horseIdが設定されている場合はそれを使用 (WIN/PLACE等)
+        if (bet.horseId && betHorses.length === 0) {
+            betHorses = [bet.horseId];
+        }
+
+        const betType = (bet.type || "WIN").toUpperCase();
+
         // WIN (単勝)
-        if (bet.type === "WIN") {
-            if (bet.horseId === winnerId) {
+        if (betType === "WIN" || betType === "TANSHO") {
+            if (betHorses[0] === r1) {
                 isWin = true;
-                payout = Math.floor(bet.betAmount * winner.odds);
+                const horse = horses.find(h => h.id === r1);
+                payout = Math.floor(bet.betAmount * (betOdds > 1 ? betOdds : horse?.odds || 2.0));
             }
         }
         // PLACE (複勝) - 3着以内
-        else if (bet.type === "PLACE") {
-            if (bet.horseId && top3.includes(bet.horseId)) {
+        else if (betType === "PLACE" || betType === "FUKUSHO") {
+            if (betHorses[0] && top3Set.has(betHorses[0])) {
                 isWin = true;
-                // 簡易配当計算: オッズ/3
-                // 本来は (プール - 控除) / 的中数 だが、ここでは固定オッズ制の簡易版
-                const horse = horses.find(h => h.id === bet.horseId);
-                const odds = horse ? horse.odds : 3.0;
-                payout = Math.floor(bet.betAmount * Math.max(1.0, odds / 3));
+                const horse = horses.find(h => h.id === betHorses[0]);
+                const odds = betOdds > 1 ? betOdds : (horse ? Math.max(1.0, horse.odds / 3) : 1.3);
+                payout = Math.floor(bet.betAmount * odds);
+            }
+        }
+        // UMAREN (馬連) - 1,2着 順不同
+        else if (betType === "UMAREN") {
+            if (betHorses.length >= 2) {
+                const h1 = betHorses[0];
+                const h2 = betHorses[1];
+                if ((h1 === r1 && h2 === r2) || (h1 === r2 && h2 === r1)) {
+                    isWin = true;
+                    payout = Math.floor(bet.betAmount * betOdds);
+                }
+            }
+        }
+        // UMATAN (馬単) - 1着→2着 順序通り
+        else if (betType === "UMATAN") {
+            if (betHorses.length >= 2 && betHorses[0] === r1 && betHorses[1] === r2) {
+                isWin = true;
+                payout = Math.floor(bet.betAmount * betOdds);
+            }
+        }
+        // SANRENPUKU (3連複) - 1,2,3着 順不同
+        else if (betType === "SANRENPUKU") {
+            if (betHorses.length >= 3) {
+                const betSet = new Set(betHorses.slice(0, 3));
+                if (betSet.has(r1) && betSet.has(r2) && betSet.has(r3)) {
+                    isWin = true;
+                    payout = Math.floor(bet.betAmount * betOdds);
+                }
+            }
+        }
+        // SANRENTAN (3連単) - 1着→2着→3着 順序通り
+        else if (betType === "SANRENTAN") {
+            if (betHorses.length >= 3 &&
+                betHorses[0] === r1 && betHorses[1] === r2 && betHorses[2] === r3) {
+                isWin = true;
+                payout = Math.floor(bet.betAmount * betOdds);
             }
         }
 
-        // Complex Bets (BOX/NAGASHI) would be handled here if expanded into types
-        // OR checks against 'details' json. But for now Client expands to WIN/PLACE bets.
-
+        // 配当処理
         if (isWin && payout > 0) {
             // トランザクション更新
             await db
@@ -269,10 +321,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
             // ユーザーに払い戻し
             await transactMoney(bet.userId, payout, `競馬配当: ${raceId} (${bet.type})`);
 
-            // Only earn XP once per race? Or per win? 
-            if (isWin) {
-                await earnXp(bet.userId, "race_win");
-            }
+            // XP付与
+            await earnXp(bet.userId, "race_win");
         }
     }
 }
@@ -332,6 +382,43 @@ export async function getKeibaHistory(
     }));
 }
 
+/**
+ * 本日のレース結果を取得 (M-4対応)
+ */
+export async function getTodayRaceResults(): Promise<{
+    races: Array<{
+        id: string;
+        name: string;
+        status: string;
+        ranking: number[];
+        horses: Horse[];
+        startedAt: string;
+    }>;
+}> {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const races = await db
+        .select()
+        .from(keibaRaces)
+        .where(and(
+            eq(keibaRaces.status, "RESOLVED"),
+            sql`date(${keibaRaces.createdAt}) = ${today}`
+        ))
+        .orderBy(desc(keibaRaces.createdAt))
+        .limit(20);
+
+    return {
+        races: races.map(r => ({
+            id: r.id,
+            name: r.name,
+            status: r.status,
+            ranking: r.resultsJson ? JSON.parse(r.resultsJson) : [],
+            horses: r.horsesJson ? JSON.parse(r.horsesJson) : [],
+            startedAt: r.scheduledAt || r.createdAt || "",
+        }))
+    };
+}
+
 // ========== ガチャ (既存のまま) ==========
 
 export async function pullGacha(
@@ -372,8 +459,9 @@ export async function pullGacha(
             duplicate,
         });
 
-        // 記録を保存
+        // 記録を保存 (M-11: userId追加)
         await db.insert(gachaRecords).values({
+            userId,
             poolId,
             itemId: item.id,
             rarity: item.rarity,
@@ -448,7 +536,8 @@ function selectGachaItem(items: GachaItem[]): GachaItem {
 }
 
 async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<void> {
-    if (item.id.includes("coin")) {
+    // コインアイテム
+    if (item.id.includes("coin") || item.id.includes("jackpot") || item.id.includes("golden")) {
         const amounts: Record<string, number> = {
             n_coin_s: 50,
             n_coin_m: 100,
@@ -463,6 +552,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         }
     }
 
+    // XPアイテム
     if (item.id.includes("xp")) {
         const amounts: Record<string, number> = {
             n_xp_s: 50,
@@ -489,6 +579,31 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
                     })
                     .where(eq(gameData.userId, userId));
             }
+        }
+    }
+
+    // インベントリアイテム (テーマ、ブースター、特殊) - M-11拡張
+    const inventoryPatterns = ["theme", "booster", "decoration", "special", "ticket"];
+    const isInventoryItem = inventoryPatterns.some(pattern => item.id.toLowerCase().includes(pattern));
+
+    if (isInventoryItem && !item.id.includes("coin") && !item.id.includes("xp")) {
+        const existing = await db
+            .select()
+            .from(gameData)
+            .where(eq(gameData.userId, userId))
+            .limit(1);
+
+        if (existing.length > 0) {
+            const data = JSON.parse(existing[0].dataJson);
+            data.inventory = data.inventory || {};
+            data.inventory[item.id] = (data.inventory[item.id] || 0) + 1;
+            await db
+                .update(gameData)
+                .set({
+                    dataJson: JSON.stringify(data),
+                    updatedAt: new Date().toISOString(),
+                })
+                .where(eq(gameData.userId, userId));
         }
     }
 }

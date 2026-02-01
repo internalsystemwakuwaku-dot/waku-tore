@@ -80,11 +80,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                             <hr className="border-gray-200" />
 
-                            {/* 背景設定 */}
+                            {/* 背景設定 (M-3 UX改善) */}
                             <h4 className="font-medium text-gray-700">背景設定</h4>
 
                             <div className="space-y-1">
-                                <label className="text-sm text-gray-600">背景タイプ</label>
                                 <label className="text-sm text-gray-600">背景タイプ</label>
                                 <select
                                     value={config.bgType}
@@ -98,15 +97,53 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             </div>
 
                             {config.bgType !== "none" && (
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                     <label className="text-sm text-gray-600">URL</label>
                                     <input
                                         type="text"
                                         value={config.bgUrl}
                                         onChange={(e) => updateConfig({ bgUrl: e.target.value })}
-                                        placeholder="https://..."
-                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                                        placeholder={config.bgType === "image" ? "https://example.com/image.jpg" : "https://example.com/video.mp4"}
+                                        className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${config.bgUrl && !config.bgUrl.match(/^https?:\/\/.+/)
+                                                ? "border-red-300 bg-red-50"
+                                                : "border-gray-300"
+                                            }`}
                                     />
+                                    {config.bgUrl && !config.bgUrl.match(/^https?:\/\/.+/) && (
+                                        <p className="text-xs text-red-500">有効なURLを入力してください (http:// または https:// で始まる必要があります)</p>
+                                    )}
+
+                                    {/* プレビューサムネイル */}
+                                    {config.bgUrl && config.bgUrl.match(/^https?:\/\/.+/) && (
+                                        <div className="mt-2 p-2 bg-gray-100 rounded-lg">
+                                            <p className="text-xs text-gray-500 mb-1">プレビュー:</p>
+                                            {config.bgType === "image" ? (
+                                                <img
+                                                    src={config.bgUrl}
+                                                    alt="背景プレビュー"
+                                                    className="w-full h-24 object-cover rounded border border-gray-200"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = "none";
+                                                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                                    }}
+                                                />
+                                            ) : (
+                                                <video
+                                                    src={config.bgUrl}
+                                                    className="w-full h-24 object-cover rounded border border-gray-200"
+                                                    muted
+                                                    autoPlay
+                                                    loop
+                                                    playsInline
+                                                    onError={(e) => {
+                                                        (e.target as HTMLVideoElement).style.display = "none";
+                                                        (e.target as HTMLVideoElement).nextElementSibling?.classList.remove("hidden");
+                                                    }}
+                                                />
+                                            )}
+                                            <p className="hidden text-xs text-red-500 mt-1">読み込みに失敗しました。URLを確認してください。</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

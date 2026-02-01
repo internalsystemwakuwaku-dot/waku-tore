@@ -15,6 +15,9 @@ export interface GameData {
     stats: GameStats;
     lastDailyBonus: string | null;
     streak: number;
+    // 日次借金制限 (M-10対応)
+    lastLoanDate?: string; // ISO日付文字列 (YYYY-MM-DD)
+    todayLoanAmount?: number; // 本日の借入総額
 }
 
 // ゲーム設定

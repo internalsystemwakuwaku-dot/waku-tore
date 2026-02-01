@@ -11,6 +11,7 @@ import {
     getBoardCustomFields,
     moveCard as trelloMoveCard,
     updateCardDue as trelloUpdateDue,
+    updateCardDescription as trelloUpdateDesc,
     postCardComment,
     deleteComment,
     TrelloCard,
@@ -366,6 +367,48 @@ export async function saveCardAssignment(
             });
         }
 
+        // ... assignment DB update/insert logic ...
+
+        /* --- Trello同期処理 (Gap M-5対応) --- */
+        // エラーが出てもDB保存はロールバックしない方針（同期失敗ログのみ）
+        try {
+            // 構築No. または システム種別 が更新対象の場合のみ実行
+            if (roles.constructionNumber !== undefined || roles.systemType !== undefined) {
+                const boardId = process.env.TRELLO_BOARD_ID;
+                const apiKey = process.env.TRELLO_API_KEY;
+                const token = process.env.TRELLO_TOKEN;
+
+                if (boardId) {
+                    // カスタムフィールド定義を取得してIDを特定する (動的解決)
+                    const cfUrl = `https://api.trello.com/1/boards/${boardId}/customFields?key=${apiKey}&token=${token}`;
+                    const cfRes = await fetch(cfUrl);
+                    if (cfRes.ok) {
+                        const customFields = await cfRes.json();
+
+                        // 構築No. (Construction No.)
+                        if (roles.constructionNumber !== undefined) {
+                            const targetField = customFields.find((f: any) => f.name === "構築No.");
+                            if (targetField) {
+                                await updateTrelloCustomField(cardId, targetField.id, roles.constructionNumber);
+                            }
+                        }
+
+                        // システム種別 (System Type)
+                        if (roles.systemType !== undefined) {
+                            // "システム種別" または "System Type" などを探す (環境に合わせて調整)
+                            // GAS版ではカスタムフィールドとして扱っていたため、ここでも対応
+                            const targetField = customFields.find((f: any) => f.name === "システム種別" || f.name === "System Type");
+                            if (targetField) {
+                                await updateTrelloCustomField(cardId, targetField.id, roles.systemType);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (syncError) {
+            console.error("Trello Custom Field Sync Failed:", syncError);
+        }
+
         return { success: true };
     } catch (e) {
         return {
@@ -420,6 +463,108 @@ export async function deleteTrelloComment(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         await deleteComment(commentId);
+        return { success: true };
+    } catch (e) {
+        return {
+            success: false,
+            error: e instanceof Error ? e.message : String(e),
+        };
+    }
+}
+/**
+ * Trelloカスタムフィールド（リスト形式）を更新
+ * GAS版の updateTrelloListCustomField を再現
+ */
+export async function updateTrelloCustomField(
+    cardId: string,
+    customFieldId: string,
+    valueText: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        // 1. 値をクリアする場合
+        if (!valueText) {
+            await putTrelloCustomField(cardId, customFieldId, { value: "" });
+            return { success: true };
+        }
+
+        const apiKey = process.env.TRELLO_API_KEY;
+        const token = process.env.TRELLO_TOKEN;
+
+        // 2. カスタムフィールドの定義（選択肢）を取得
+        const fieldUrl = `https://api.trello.com/1/customFields/${customFieldId}?key=${apiKey}&token=${token}`;
+        const fieldRes = await fetch(fieldUrl);
+        if (!fieldRes.ok) {
+            throw new Error(`Failed to fetch field def: ${fieldRes.statusText}`);
+        }
+        const fieldData = await fieldRes.json();
+        const options = fieldData.options || [];
+
+        // 3. テキストと一致する選択肢を探す
+        // TrelloのOptionは { id: "...", value: { text: "..." } } の形式
+        const matchedOption = options.find((opt: any) => opt.value?.text == valueText);
+
+        if (!matchedOption) {
+            console.warn(`Trello Custom Field Skip: Option "${valueText}" not found for field ${customFieldId}`);
+            // オプションが見つからない場合はエラーとせず、スキップする（GAS版も同様）
+            return { success: false, error: "Option not found" };
+        }
+
+        // 4. 更新リクエスト (idValueを指定)
+        await putTrelloCustomField(cardId, customFieldId, { idValue: matchedOption.id });
+        return { success: true };
+
+    } catch (e) {
+        console.error("updateTrelloCustomField error:", e);
+        return {
+            success: false,
+            error: e instanceof Error ? e.message : String(e),
+        };
+    }
+}
+
+/**
+ * Trello APIへのPUTリクエスト (Custom Field Item)
+ */
+async function putTrelloCustomField(cardId: string, customFieldId: string, payload: any) {
+    const apiKey = process.env.TRELLO_API_KEY;
+    const token = process.env.TRELLO_TOKEN;
+    const url = `https://api.trello.com/1/cards/${cardId}/customField/${customFieldId}/item?key=${apiKey}&token=${token}`;
+
+    const res = await fetch(url, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Trello API Error: ${errText}`);
+    }
+    return res.json();
+}
+
+/**
+ * カード説明文を更新 (Gap M-7対応)
+ */
+export async function updateTrelloDescription(
+    cardId: string,
+    description: string,
+    userId?: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        await trelloUpdateDesc(cardId, description);
+
+        // ログ記録
+        if (userId) {
+            await db.insert(activityLogs).values({
+                userId,
+                action: `説明文更新: ${cardId.substring(0, 8)}...`,
+                cardId,
+            });
+        }
+
         return { success: true };
     } catch (e) {
         return {

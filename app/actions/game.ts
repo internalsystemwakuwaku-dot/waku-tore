@@ -120,6 +120,7 @@ export async function earnXp(
 
 /**
  * 所持金を増減
+ * M-10: 日次借金制限 (1日10,000Gまで) 対応
  */
 export async function transactMoney(
     userId: string,
@@ -133,6 +134,34 @@ export async function transactMoney(
         const DEBT_LIMIT = -10000;
         if (amount < 0 && data.money + amount < DEBT_LIMIT) {
             return { success: false, error: `資金不足です (借金上限: ${DEBT_LIMIT.toLocaleString()}G)` };
+        }
+
+        // 日次借金制限チェック (M-10対応)
+        const DAILY_LOAN_LIMIT = 10000;
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        // 日付が変わっていたらリセット
+        if (data.lastLoanDate !== today) {
+            data.lastLoanDate = today;
+            data.todayLoanAmount = 0;
+        }
+
+        // 借金（マイナス amount）の場合、日次制限をチェック
+        if (amount < 0 && data.money + amount < 0) {
+            // 実際に借入となる額を計算
+            const actualLoan = Math.abs(Math.min(0, data.money + amount));
+            const todayTotal = (data.todayLoanAmount || 0) + actualLoan;
+
+            if (todayTotal > DAILY_LOAN_LIMIT) {
+                const remaining = DAILY_LOAN_LIMIT - (data.todayLoanAmount || 0);
+                return {
+                    success: false,
+                    error: `本日の借入限度額を超えています (残り: ${Math.max(0, remaining).toLocaleString()}G / 上限: ${DAILY_LOAN_LIMIT.toLocaleString()}G)`
+                };
+            }
+
+            // 借入額を記録
+            data.todayLoanAmount = todayTotal;
         }
 
         data.money += amount;
@@ -297,3 +326,52 @@ export async function updateGameSettings(
         return { success: false };
     }
 }
+
+/**
+ * 残高整合性チェック (Gap M-8対応)
+ * keibaTransactions から残高を再計算し、gameData.money と照合
+ */
+import { keibaTransactions } from "@/lib/db/schema";
+import { sql } from "drizzle-orm";
+
+export async function reconcileBalance(
+    userId: string
+): Promise<{ success: boolean; balance: number; mismatch?: boolean; reconciled?: boolean }> {
+    try {
+        const data = await getGameData(userId);
+
+        // 初期残高 (DEFAULT_GAME_DATA.money)
+        const INITIAL_BALANCE = 10000;
+
+        // トランザクション合計 (payout - betAmount の総和)
+        const txResult = await db
+            .select({
+                totalBet: sql<number>`COALESCE(SUM(${keibaTransactions.betAmount}), 0)`,
+                totalPayout: sql<number>`COALESCE(SUM(${keibaTransactions.payout}), 0)`,
+            })
+            .from(keibaTransactions)
+            .where(eq(keibaTransactions.userId, userId))
+            .then(res => res[0]);
+
+        const totalBet = txResult?.totalBet || 0;
+        const totalPayout = txResult?.totalPayout || 0;
+        const calculatedBalance = INITIAL_BALANCE - totalBet + totalPayout;
+
+        // 現在の残高と比較
+        const currentBalance = data.money;
+        const mismatch = currentBalance !== calculatedBalance;
+
+        if (mismatch) {
+            console.warn(`[reconcileBalance] User ${userId}: mismatch detected. Current: ${currentBalance}, Calculated: ${calculatedBalance}`);
+            // オプション: 自動修正 (この実装ではログのみ)
+            // data.money = calculatedBalance;
+            // await saveGameData(userId, data);
+        }
+
+        return { success: true, balance: calculatedBalance, mismatch, reconciled: false };
+    } catch (e) {
+        console.error("reconcileBalance error:", e);
+        return { success: false, balance: 0 };
+    }
+}
+

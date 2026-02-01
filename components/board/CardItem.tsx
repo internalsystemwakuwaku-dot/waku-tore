@@ -2,6 +2,8 @@
 
 import { useBoardStore } from "@/stores/boardStore";
 import type { ProcessedCard } from "@/types/trello";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface CardItemProps {
     card: ProcessedCard;
@@ -11,10 +13,33 @@ interface CardItemProps {
 /**
  * GASシステム風のカードアイテム
  * 白背景、明瞭な情報表示、ホバーエフェクト
+ * DnD対応 (useSortable)
  */
 export function CardItem({ card, hasOverdueMemo }: CardItemProps) {
     const { ui, toggleCardSelection, setEditingCard } = useBoardStore();
     const isSelected = ui.selectedCardIds.has(card.id);
+
+    // DnD hook
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({
+        id: card.id,
+        data: {
+            type: "Card",
+            card,
+        },
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+    };
 
     // 期限の表示形式とスタイル
     const getDueInfo = () => {
@@ -82,11 +107,15 @@ export function CardItem({ card, hasOverdueMemo }: CardItemProps) {
 
     return (
         <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             className={`
                 relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200
-                border hover:border-blue-300 cursor-pointer
+                border hover:border-blue-300 cursor-pointer touch-none
                 ${isSelected ? "ring-2 ring-blue-500 border-blue-400" : "border-gray-200"}
                 ${card.roles.isPinned ? "border-l-4 border-l-yellow-400" : ""}
                 ${hasOverdueMemo ? "ring-1 ring-red-400" : ""}

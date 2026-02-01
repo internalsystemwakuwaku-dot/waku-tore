@@ -146,6 +146,7 @@ export const keibaTransactions = sqliteTable("keiba_transactions", {
 // ガチャ記録
 export const gachaRecords = sqliteTable("gacha_records", {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(), // ユーザーID (M-11対応)
     poolId: text("pool_id").notNull(),
     itemId: text("item_id").notNull(),
     rarity: text("rarity").notNull(),

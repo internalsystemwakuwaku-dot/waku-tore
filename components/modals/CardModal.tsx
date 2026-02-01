@@ -1,12 +1,12 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useBoardStore } from "@/stores/boardStore";
-import { saveCardAssignment, updateCardDue, moveCardToList } from "@/app/actions/trello";
+import { saveCardAssignment, updateCardDue, moveCardToList, updateTrelloDescription } from "@/app/actions/trello";
+import { getCardMemos, addCardMemo, toggleMemoStatus, deleteCardMemo, type Memo } from "@/app/actions/memo";
 import type { ProcessedCard, CardRoles } from "@/types/trello";
 
 interface CardModalProps {
     card: ProcessedCard;
+    userId: string;
     onClose: () => void;
     onOpenLog: (cardId: string, cardName: string) => void;
 }
@@ -21,11 +21,16 @@ const SYSTEM_TYPE_OPTIONS = [
 // 構築番号の選択肢（1-50）
 const CONSTRUCTION_NUMBER_OPTIONS = ["(未設定)", ...Array.from({ length: 50 }, (_, i) => String(i + 1))];
 
-export function CardModal({ card, onClose, onOpenLog }: CardModalProps) {
+export function CardModal({ card, userId, onClose, onOpenLog }: CardModalProps) {
     const { data } = useBoardStore();
     const [roles, setRoles] = useState<CardRoles>(card.roles);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<"assignment" | "info" | "memo" | "move">("assignment");
+
+    // メモの状態
+    const [memos, setMemos] = useState<Memo[]>([]);
+    const [memoContent, setMemoContent] = useState("");
+    const [isLoadingMemos, setIsLoadingMemos] = useState(false);
 
     // 期限日時の状態
     const [dueDate, setDueDate] = useState<string>(
@@ -35,10 +40,79 @@ export function CardModal({ card, onClose, onOpenLog }: CardModalProps) {
     // 移動先リストの状態
     const [selectedListId, setSelectedListId] = useState<string>(card.idList);
 
+    // 説明文の状態 (M-7対応)
+    const [cardDescription, setCardDescription] = useState<string>(card.desc || "");
+    const [isSavingDesc, setIsSavingDesc] = useState(false);
+
     if (!data) return null;
 
     // 現在のリスト名を取得
     const currentList = data.lists.find(l => l.id === card.idList);
+
+    // メモ読み込み
+    const fetchMemos = async () => {
+        setIsLoadingMemos(true);
+        try {
+            const result = await getCardMemos(card.id);
+            setMemos(result);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoadingMemos(false);
+        }
+    };
+
+    // タブ切り替え時にメモを読み込む
+    useEffect(() => {
+        if (activeTab === "memo") {
+            fetchMemos();
+        }
+    }, [activeTab, card.id]);
+
+    // メモ追加
+    const handleAddMemo = async () => {
+        if (!memoContent.trim()) return;
+        setIsSaving(true);
+        try {
+            const result = await addCardMemo(card.id, userId, memoContent);
+            if (result.success) {
+                setMemoContent("");
+                fetchMemos(); // リロード
+            } else {
+                alert("メモの保存に失敗しました");
+            }
+        } catch (e) {
+            alert("エラーが発生しました");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // メモ完了状態切り替え
+    const handleToggleMemo = async (memoId: string) => {
+        try {
+            const result = await toggleMemoStatus(memoId);
+            if (result.success) {
+                // ローカルstate更新
+                setMemos(prev => prev.map(m =>
+                    m.id === memoId ? { ...m, isFinished: !m.isFinished } : m
+                ));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // メモ削除
+    const handleDeleteMemo = async (memoId: string) => {
+        if (!confirm("このメモを削除しますか？")) return;
+        try {
+            await deleteCardMemo(memoId);
+            setMemos(prev => prev.filter(m => m.id !== memoId));
+        } catch (e) {
+            alert("削除に失敗しました");
+        }
+    };
 
     // 保存処理
     const handleSave = async () => {
@@ -112,6 +186,21 @@ export function CardModal({ card, onClose, onOpenLog }: CardModalProps) {
     // ピン留め切り替え
     const handleTogglePin = () => {
         setRoles((prev) => ({ ...prev, isPinned: !prev.isPinned }));
+    };
+
+    // 説明文を保存 (M-7対応)
+    const handleSaveDescription = async () => {
+        setIsSavingDesc(true);
+        try {
+            const result = await updateTrelloDescription(card.id, cardDescription, userId);
+            if (!result.success) {
+                console.error("Failed to save description:", result.error);
+            }
+        } catch (e) {
+            console.error("Error saving description:", e);
+        } finally {
+            setIsSavingDesc(false);
+        }
     };
 
     return (
@@ -421,21 +510,107 @@ export function CardModal({ card, onClose, onOpenLog }: CardModalProps) {
                                 </div>
                             )}
 
-                            {/* 説明 */}
-                            {card.desc && (
-                                <div>
-                                    <label className="block text-xs text-gray-600 mb-1">説明</label>
-                                    <p className="text-gray-800 whitespace-pre-wrap text-sm bg-white p-3 rounded-lg border border-gray-200">
-                                        {card.desc}
-                                    </p>
+                            {/* 説明 (編集可能 M-7対応) */}
+                            <div>
+                                <label className="block text-xs text-gray-600 mb-1">説明</label>
+                                <textarea
+                                    value={cardDescription}
+                                    onChange={(e) => setCardDescription(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+                                    placeholder="説明を入力..."
+                                    rows={4}
+                                />
+                                <div className="flex justify-end mt-2">
+                                    <button
+                                        onClick={handleSaveDescription}
+                                        disabled={isSavingDesc || cardDescription === (card.desc || "")}
+                                        className="px-4 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                                    >
+                                        {isSavingDesc ? "保存中..." : "説明を保存"}
+                                    </button>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
 
                     {activeTab === "memo" && (
-                        <div className="text-center text-gray-500 py-8">
-                            <p>カードメモ機能は フェーズC で実装予定です</p>
+                        <div className="space-y-4 h-full flex flex-col">
+                            {/* メモ追加フォーム */}
+                            <div className="flex flex-col gap-2">
+                                <textarea
+                                    value={memoContent}
+                                    onChange={(e) => setMemoContent(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="メモを入力..."
+                                    rows={3}
+                                />
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={handleAddMemo}
+                                        disabled={isSaving || !memoContent.trim()}
+                                        className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                                    >
+                                        {isSaving ? "送信中..." : "メモを追加"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <hr className="border-gray-200" />
+
+                            {/* メモ一覧 */}
+                            <div className="flex-1 overflow-y-auto space-y-3 min-h-[200px]">
+                                {isLoadingMemos ? (
+                                    <div className="text-center py-8 text-gray-500">読み込み中...</div>
+                                ) : memos.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">メモはありません</div>
+                                ) : (
+                                    memos.map((memo) => (
+                                        <div
+                                            key={memo.id}
+                                            className={`p-3 rounded-lg border ${memo.isFinished ? "bg-gray-50 border-gray-200" : "bg-white border-blue-100 shadow-sm"
+                                                }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-bold text-xs text-gray-700">{memo.userId}</span>
+                                                        <span className="text-xs text-gray-400">
+                                                            {memo.createdAt ? new Date(memo.createdAt).toLocaleString("ja-JP") : ""}
+                                                        </span>
+                                                    </div>
+                                                    <p className={`text-sm whitespace-pre-wrap ${memo.isFinished ? "text-gray-400 line-through" : "text-gray-800"
+                                                        }`}>
+                                                        {memo.content}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <button
+                                                        onClick={() => handleToggleMemo(memo.id)}
+                                                        className={`p-1.5 rounded transition-colors ${memo.isFinished
+                                                            ? "text-green-500 hover:bg-green-50"
+                                                            : "text-gray-400 hover:text-green-500 hover:bg-gray-50"
+                                                            }`}
+                                                        title={memo.isFinished ? "未完了に戻す" : "完了にする"}
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteMemo(memo.id)}
+                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                        title="削除"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
                     )}
 

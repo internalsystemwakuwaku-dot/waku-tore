@@ -1,14 +1,56 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useBoardStore } from "@/stores/boardStore";
-import { getTrelloData } from "@/app/actions/trello";
+import { getTrelloData, moveCardToList } from "@/app/actions/trello";
 import { CardItem } from "./CardItem";
 import type { TrelloListInfo } from "@/types/trello";
+import {
+    DndContext,
+    DragOverlay,
+    closestCorners,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragStartEvent,
+    DragEndEvent,
+    defaultDropAnimationSideEffects,
+    useDroppable,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
-export function BoardView() {
+interface User {
+    id: string;
+    email: string;
+    name?: string | null;
+}
+
+interface BoardViewProps {
+    user?: User;
+}
+
+export function BoardView({ user }: BoardViewProps) {
     const { data, isLoading, error, setData, setLoading, setError, getFilteredCards, ui } =
         useBoardStore();
+
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [activeCard, setActiveCard] = useState<any>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // 初期データ読み込み
     useEffect(() => {
@@ -31,29 +73,75 @@ export function BoardView() {
         loadData();
     }, [setData, setLoading, setError]);
 
+    // Drag Start
+    const handleDragStart = (event: DragStartEvent) => {
+        const { active } = event;
+        setActiveId(active.id as string);
+        setActiveCard(active.data.current?.card);
+    };
+
+    // Drag End
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveId(null);
+        setActiveCard(null);
+
+        if (!over || !data) return;
+
+        const activeIdStr = active.id as string;
+        const overIdStr = over.id as string;
+
+        // Find dragged card
+        const card = data.cards.find(c => c.id === activeIdStr);
+        if (!card) return;
+
+        // Determine destination list
+        let destListId = overIdStr;
+
+        // If dropped on another card, find that card's list
+        const overCard = data.cards.find(c => c.id === overIdStr);
+        if (overCard) {
+            destListId = overCard.idList;
+        }
+
+        // Find Destination List Name
+        const destList = data.lists.find(l => l.id === destListId);
+
+        // If list changed
+        if (card.idList !== destListId) {
+            // Optimistic UI Update
+            const newData = { ...data };
+            const cardIndex = newData.cards.findIndex(c => c.id === activeIdStr);
+            if (cardIndex !== -1) {
+                newData.cards[cardIndex] = { ...newData.cards[cardIndex], idList: destListId };
+                setData(newData);
+
+                // Call Server Action with Logging Info
+                try {
+                    await moveCardToList(
+                        activeIdStr,
+                        destListId,
+                        user?.id,
+                        card.name,
+                        destList ? destList.name : "不明なリスト"
+                    );
+                } catch (e) {
+                    console.error("Move failed:", e);
+                    // Revert on failure
+                    setData(data);
+                }
+            }
+        }
+    };
+
     // ローディング中
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="flex items-center gap-3 text-gray-500">
-                    <svg
-                        className="animate-spin h-6 w-6"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
+                    <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                     <span>データを取得中...</span>
                 </div>
@@ -95,21 +183,44 @@ export function BoardView() {
     }
 
     return (
-        <div className="overflow-x-auto pb-4 -mx-4 px-4">
-            <div className="flex gap-4 min-w-max">
-                {data.lists
-                    .filter((list) => !ui.hiddenListIds.has(list.id))
-                    .map((list) => (
-                        <ListColumn
-                            key={list.id}
-                            list={list}
-                            cards={cardsByList.get(list.id) || []}
-                            isUnlocked={ui.unlockedListIds.has(list.id)}
-                            overdueMemoCardIds={data.overdueMemoCardIds}
-                        />
-                    ))}
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+        >
+            <div className="overflow-x-auto pb-4 -mx-4 px-4">
+                <div className="flex gap-4 min-w-max">
+                    {data.lists
+                        .filter((list) => !ui.hiddenListIds.has(list.id))
+                        .map((list) => (
+                            <ListColumn
+                                key={list.id}
+                                list={list}
+                                cards={cardsByList.get(list.id) || []}
+                                isUnlocked={ui.unlockedListIds.has(list.id)}
+                                overdueMemoCardIds={data.overdueMemoCardIds}
+                            />
+                        ))}
+                </div>
             </div>
-        </div>
+
+            <DragOverlay dropAnimation={{
+                sideEffects: defaultDropAnimationSideEffects({
+                    styles: {
+                        active: {
+                            opacity: '0.5',
+                        },
+                    },
+                }),
+            }}>
+                {activeCard ? (
+                    <div className="rotate-2">
+                        <CardItem card={activeCard} hasOverdueMemo={false} />
+                    </div>
+                ) : null}
+            </DragOverlay>
+        </DndContext>
     );
 }
 
@@ -126,6 +237,12 @@ interface ListColumnProps {
 function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnProps) {
     const { toggleListLock, toggleListVisibility } = useBoardStore();
 
+    // UseDroppable for the list container
+    const { setNodeRef } = useDroppable({
+        id: list.id,
+        data: { type: "List", list }
+    });
+
     // リスト名の色分け（GAS風）
     const getListColor = () => {
         const name = list.name.toLowerCase();
@@ -137,7 +254,7 @@ function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnP
     };
 
     return (
-        <div className="w-80 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg shadow-sm border border-gray-200">
+        <div ref={setNodeRef} className="w-80 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg shadow-sm border border-gray-200">
             {/* リストヘッダー - GAS風 */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white rounded-t-lg">
                 <div className="flex items-center gap-2 min-w-0">
@@ -195,17 +312,19 @@ function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnP
 
             {/* カードリスト */}
             <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
-                {cards.length === 0 ? (
-                    <p className="text-center text-gray-400 text-sm py-8">カードなし</p>
-                ) : (
-                    cards.map((card) => (
-                        <CardItem
-                            key={card.id}
-                            card={card}
-                            hasOverdueMemo={overdueMemoCardIds.includes(card.id)}
-                        />
-                    ))
-                )}
+                <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    {cards.length === 0 ? (
+                        <p className="text-center text-gray-400 text-sm py-8">カードなし</p>
+                    ) : (
+                        cards.map((card) => (
+                            <CardItem
+                                key={card.id}
+                                card={card}
+                                hasOverdueMemo={overdueMemoCardIds.includes(card.id)}
+                            />
+                        ))
+                    )}
+                </SortableContext>
             </div>
         </div>
     );
