@@ -52,7 +52,7 @@ export interface ShopItem {
     name: string;
     description: string;
     price: number;
-    category: "theme" | "decoration" | "booster" | "special";
+    category: "theme" | "decoration" | "booster" | "special" | "facility";
     icon: string;
     maxOwn?: number;       // 最大所持数（undefinedなら無制限）
     effect?: string;       // 効果説明

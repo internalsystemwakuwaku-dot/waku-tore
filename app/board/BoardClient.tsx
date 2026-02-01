@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BoardView } from "@/components/board/BoardView";
 import { FilterBar, QuickFilterButtons } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
@@ -9,7 +9,10 @@ import { BulkAssignModal } from "@/components/modals/BulkAssignModal";
 import { BulkMoveModal } from "@/components/modals/BulkMoveModal";
 import { CardLogModal } from "@/components/modals/CardLogModal";
 import { DashboardModal } from "@/components/modals/DashboardModal";
+import { ShopModal } from "@/components/modals/ShopModal";
+import { HorseRaceModal } from "@/components/modals/HorseRaceModal";
 import { useBoardStore } from "@/stores/boardStore";
+import { useGameStore } from "@/stores/gameStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
 import { OmikujiModal } from "@/components/game/OmikujiModal";
@@ -17,6 +20,7 @@ import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
 import { BgmPlayer } from "@/components/ui/BgmPlayer";
 import { ToastContainer } from "@/components/ui/Toast";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { ThemeBackground } from "@/components/ui/ThemeBackground";
 import Link from "next/link";
 
 interface User {
@@ -42,7 +46,18 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
     const [showCardLogModal, setShowCardLogModal] = useState<{ id: string; name: string } | null>(null);
     const [showDashboardModal, setShowDashboardModal] = useState(false);
+    const [showShopModal, setShowShopModal] = useState(false);
+    const [showHorseRaceModal, setShowHorseRaceModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
+
+    // オートクリッカー等のタイマー
+    useEffect(() => {
+        // 1秒ごとにゲームのtickを実行
+        const timer = setInterval(() => {
+            useGameStore.getState().tick();
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     // 編集中のカードを取得
     const editingCard = ui.editingCardId && data
@@ -51,6 +66,9 @@ export function BoardClient({ user }: BoardClientProps) {
 
     return (
         <div className="min-h-screen bg-gray-100">
+            {/* テーマ背景 */}
+            <ThemeBackground />
+
             {/* ヘッダー - GAS風 */}
             <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
                 {/* トップバー */}
@@ -146,6 +164,24 @@ export function BoardClient({ user }: BoardClientProps) {
                             title="ダッシュボード"
                         >
                             📊
+                        </button>
+
+                        {/* ショップ */}
+                        <button
+                            onClick={() => setShowShopModal(true)}
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                            title="ショップ"
+                        >
+                            🛒
+                        </button>
+
+                        {/* 競馬 */}
+                        <button
+                            onClick={() => setShowHorseRaceModal(true)}
+                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                            title="競馬"
+                        >
+                            🐎
                         </button>
 
                         {/* おみくじ */}
@@ -295,6 +331,18 @@ export function BoardClient({ user }: BoardClientProps) {
             <DashboardModal
                 isOpen={showDashboardModal}
                 onClose={() => setShowDashboardModal(false)}
+            />
+
+            {/* ショップモーダル */}
+            <ShopModal
+                isOpen={showShopModal}
+                onClose={() => setShowShopModal(false)}
+            />
+
+            {/* 競馬モーダル */}
+            <HorseRaceModal
+                isOpen={showHorseRaceModal}
+                onClose={() => setShowHorseRaceModal(false)}
             />
         </div>
     );

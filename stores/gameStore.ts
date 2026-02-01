@@ -72,6 +72,52 @@ export const SHOP_ITEMS: ShopItem[] = [
         icon: "👑",
         maxOwn: 1,
     },
+    // --- 生産施設 ---
+    {
+        id: "facility_cursor",
+        name: "強化カーソル",
+        description: "10秒ごとに1XPを自動獲得",
+        price: 100,
+        category: "facility",
+        icon: "👆",
+        effect: "auto_xp_0.1",
+    },
+    {
+        id: "facility_grandma",
+        name: "グランマ",
+        description: "1秒ごとに1XPを自動獲得",
+        price: 500,
+        category: "facility",
+        icon: "👵",
+        effect: "auto_xp_1",
+    },
+    {
+        id: "facility_farm",
+        name: "わくわく農場",
+        description: "1秒ごとに5XPを自動獲得",
+        price: 2000,
+        category: "facility",
+        icon: "🚜",
+        effect: "auto_xp_5",
+    },
+    {
+        id: "facility_mine",
+        name: "プログラミング鉱山",
+        description: "1秒ごとに15XPを自動獲得",
+        price: 8000,
+        category: "facility",
+        icon: "⛏️",
+        effect: "auto_xp_15",
+    },
+    {
+        id: "facility_factory",
+        name: "機能実装工場",
+        description: "1秒ごとに50XPを自動獲得",
+        price: 30000,
+        category: "facility",
+        icon: "🏭",
+        effect: "auto_xp_50",
+    },
 ];
 
 interface GameState {
@@ -111,6 +157,10 @@ interface GameState {
     // ゲームアクション
     addXP: (amount: number) => void;
     addMoney: (amount: number) => void;
+    purchaseItem: (itemId: string) => { success: boolean; message?: string };
+
+    // オートクリッカー処理 (1秒ごとに呼び出し)
+    tick: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -193,6 +243,85 @@ export const useGameStore = create<GameState>((set, get) => ({
                 money: Math.max(0, data.money + amount),
             },
         });
+    },
+
+    // アイテム購入
+    purchaseItem: (itemId) => {
+        const { data, addMoney } = get();
+        const item = SHOP_ITEMS.find((i) => i.id === itemId);
+
+        if (!item) return { success: false, message: "アイテムが存在しません" };
+        if (data.money < item.price) return { success: false, message: "お金が足りません" };
+
+        // 最大所持数チェック
+        const currentCount = data.inventory[itemId] || 0;
+        if (item.maxOwn && currentCount >= item.maxOwn) {
+            return { success: false, message: "これ以上所持できません" };
+        }
+
+        // 購入処理
+        addMoney(-item.price);
+
+        set((state) => ({
+            data: {
+                ...state.data,
+                inventory: {
+                    ...state.data.inventory,
+                    [itemId]: currentCount + 1,
+                },
+            },
+        }));
+
+        return { success: true };
+    },
+
+    // 定期実行 (オートクリッカー等)
+    tick: () => {
+        const { data, addXP } = get();
+        let autoXp = 0;
+
+        SHOP_ITEMS.forEach((item) => {
+            if (item.category === "facility" && item.effect?.startsWith("auto_xp_")) {
+                const count = data.inventory[item.id] || 0;
+                if (count > 0) {
+                    const xpPerSec = parseFloat(item.effect.replace("auto_xp_", ""));
+                    autoXp += xpPerSec * count;
+                }
+            }
+        });
+
+        if (autoXp > 0) {
+            // 小数点は確率で処理するか、内部で保持するか。今回は確率で処理
+            // 例: 0.1XP -> 10%の確率で1XP
+            const intXp = Math.floor(autoXp);
+            const floatXp = autoXp - intXp;
+
+            let totalAdd = intXp;
+            if (Math.random() < floatXp) {
+                totalAdd += 1;
+            }
+
+            if (totalAdd > 0) {
+                // 自動獲得の場合はアニメーションなしで静かに追加
+                const newXp = data.xp + totalAdd;
+                const newLevel = calculateLevel(newXp);
+                const didLevelUp = newLevel > data.level;
+
+                set((state) => ({
+                    data: {
+                        ...state.data,
+                        xp: newXp,
+                        level: newLevel,
+                        // レベルアップ時はお金も増える
+                        money: didLevelUp ? state.data.money + 100 : state.data.money
+                    }
+                }));
+
+                if (didLevelUp) {
+                    get().showLevelUpModal({ money: 100 });
+                }
+            }
+        }
     },
 }));
 

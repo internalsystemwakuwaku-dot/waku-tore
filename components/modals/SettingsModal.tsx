@@ -14,15 +14,9 @@ interface SettingsModalProps {
  */
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<"general" | "game">("general");
-    const { currentTheme, setTheme } = useThemeStore();
+    const { currentTheme, config, setTheme, updateConfig } = useThemeStore();
 
-    // 背景設定（ローカルステート）
-    const [bgType, setBgType] = useState<"none" | "image" | "video">("none");
-    const [bgUrl, setBgUrl] = useState("");
-    const [bgOpacity, setBgOpacity] = useState(0);
-    const [bgScale, setBgScale] = useState(1);
-    const [bgPosX, setBgPosX] = useState(0);
-    const [bgPosY, setBgPosY] = useState(0);
+    // 背景設定はStoreのconfigを直接参照・更新するため、ローカルstateは不要
 
     if (!isOpen) return null;
 
@@ -91,9 +85,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                             <div className="space-y-1">
                                 <label className="text-sm text-gray-600">背景タイプ</label>
+                                <label className="text-sm text-gray-600">背景タイプ</label>
                                 <select
-                                    value={bgType}
-                                    onChange={(e) => setBgType(e.target.value as typeof bgType)}
+                                    value={config.bgType}
+                                    onChange={(e) => updateConfig({ bgType: e.target.value as any })}
                                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                                 >
                                     <option value="none">なし (デフォルト)</option>
@@ -102,13 +97,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 </select>
                             </div>
 
-                            {bgType !== "none" && (
+                            {config.bgType !== "none" && (
                                 <div className="space-y-1">
                                     <label className="text-sm text-gray-600">URL</label>
                                     <input
                                         type="text"
-                                        value={bgUrl}
-                                        onChange={(e) => setBgUrl(e.target.value)}
+                                        value={config.bgUrl}
+                                        onChange={(e) => updateConfig({ bgUrl: e.target.value })}
                                         placeholder="https://..."
                                         className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                                     />
@@ -123,12 +118,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         min="0"
                                         max="0.9"
                                         step="0.1"
-                                        value={bgOpacity}
-                                        onChange={(e) => setBgOpacity(parseFloat(e.target.value))}
+                                        value={config.bgOpacity}
+                                        onChange={(e) => updateConfig({ bgOpacity: parseFloat(e.target.value) })}
                                         className="flex-1"
                                     />
                                     <span className="text-xs text-gray-500 w-10 text-right">
-                                        {Math.round(bgOpacity * 100)}%
+                                        {Math.round(config.bgOpacity * 100)}%
                                     </span>
                                 </div>
                             </div>
@@ -141,15 +136,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         min="0.5"
                                         max="3.0"
                                         step="0.1"
-                                        value={bgScale}
-                                        onChange={(e) => setBgScale(parseFloat(e.target.value))}
+                                        value={config.bgScale}
+                                        onChange={(e) => updateConfig({ bgScale: parseFloat(e.target.value) })}
                                         className="flex-1"
                                     />
                                     <span className="text-xs text-gray-500 w-10 text-right">
-                                        {Math.round(bgScale * 100)}%
+                                        {Math.round(config.bgScale * 100)}%
                                     </span>
                                     <button
-                                        onClick={() => setBgScale(1)}
+                                        onClick={() => updateConfig({ bgScale: 1 })}
                                         className="text-xs text-gray-500 border border-gray-300 rounded px-2 py-0.5 hover:bg-gray-50"
                                     >
                                         リセット
@@ -165,11 +160,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             type="range"
                                             min="-50"
                                             max="50"
-                                            value={bgPosX}
-                                            onChange={(e) => setBgPosX(parseInt(e.target.value))}
+                                            value={config.bgPosX}
+                                            onChange={(e) => updateConfig({ bgPosX: parseInt(e.target.value) })}
                                             className="flex-1"
                                         />
-                                        <span className="text-xs text-gray-500 w-8">{bgPosX}%</span>
+                                        <span className="text-xs text-gray-500 w-8">{config.bgPosX}%</span>
                                     </div>
                                 </div>
                                 <div className="space-y-1">
@@ -179,11 +174,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             type="range"
                                             min="-50"
                                             max="50"
-                                            value={bgPosY}
-                                            onChange={(e) => setBgPosY(parseInt(e.target.value))}
+                                            value={config.bgPosY}
+                                            onChange={(e) => updateConfig({ bgPosY: parseInt(e.target.value) })}
                                             className="flex-1"
                                         />
-                                        <span className="text-xs text-gray-500 w-8">{bgPosY}%</span>
+                                        <span className="text-xs text-gray-500 w-8">{config.bgPosY}%</span>
                                     </div>
                                 </div>
                             </div>

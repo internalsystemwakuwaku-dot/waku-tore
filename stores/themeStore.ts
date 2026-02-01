@@ -20,15 +20,36 @@ export const THEMES = [
 
 export type ThemeId = (typeof THEMES)[number]["id"];
 
+export interface ThemeConfig {
+    bgType: "none" | "image" | "video";
+    bgUrl: string;
+    bgOpacity: number;
+    bgScale: number;
+    bgPosX: number;
+    bgPosY: number;
+}
+
+export const DEFAULT_THEME_CONFIG: ThemeConfig = {
+    bgType: "none",
+    bgUrl: "",
+    bgOpacity: 0.5,
+    bgScale: 1.0,
+    bgPosX: 0,
+    bgPosY: 0,
+};
+
 interface ThemeState {
     currentTheme: ThemeId;
+    config: ThemeConfig;
     setTheme: (theme: ThemeId) => void;
+    updateConfig: (config: Partial<ThemeConfig>) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
     persist(
         (set) => ({
             currentTheme: "default",
+            config: DEFAULT_THEME_CONFIG,
             setTheme: (theme) => {
                 set({ currentTheme: theme });
                 // DOMにテーマを適用
@@ -36,6 +57,10 @@ export const useThemeStore = create<ThemeState>()(
                     document.documentElement.setAttribute("data-theme", theme);
                 }
             },
+            updateConfig: (newConfig) =>
+                set((state) => ({
+                    config: { ...state.config, ...newConfig },
+                })),
         }),
         {
             name: "waku-tore-theme",
