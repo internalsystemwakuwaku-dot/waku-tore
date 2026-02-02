@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useThemeStore, THEMES, ThemeId } from "@/stores/themeStore";
+import { signOut } from "@/lib/auth/client";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -105,8 +106,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         onChange={(e) => updateConfig({ bgUrl: e.target.value })}
                                         placeholder={config.bgType === "image" ? "https://example.com/image.jpg" : "https://example.com/video.mp4"}
                                         className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 ${config.bgUrl && !config.bgUrl.match(/^https?:\/\/.+/)
-                                                ? "border-red-300 bg-red-50"
-                                                : "border-gray-300"
+                                            ? "border-red-300 bg-red-50"
+                                            : "border-gray-300"
                                             }`}
                                     />
                                     {config.bgUrl && !config.bgUrl.match(/^https?:\/\/.+/) && (
@@ -223,14 +224,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             <hr className="border-gray-200" />
 
                             {/* ログアウト */}
-                            <form action="/api/auth/sign-out" method="POST">
-                                <button
-                                    type="submit"
-                                    className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
-                                >
-                                    🚪 ログアウト
-                                </button>
-                            </form>
+                            {/* ログアウト */}
+                            <button
+                                onClick={async () => {
+                                    await signOut();
+                                    window.location.href = "/login";
+                                }}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                            >
+                                🚪 ログアウト
+                            </button>
                         </div>
                     )}
 

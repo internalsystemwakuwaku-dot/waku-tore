@@ -13,7 +13,7 @@ interface HorseRaceModalProps {
 }
 
 export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
-    const { data: gameUser } = useGameStore();
+    const { data: gameUser, setData } = useGameStore();
     const { playSe, playBgm, stopBgm } = useSound();
     const [race, setRace] = useState<Race | null>(null);
     const [myBets, setMyBets] = useState<Bet[]>([]);
@@ -175,23 +175,33 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         setIsLoading(true);
         playSe("decide");
 
-        const result = await placeBet(gameUser.userId, race.id, [{
-            type: betType,
-            mode: "NORMAL",
-            horseId: selectedHorseId,
-            amount: betAmount
-        }]);
+        try {
+            const result = await placeBet(gameUser.userId, race.id, [{
+                type: betType,
+                mode: "NORMAL",
+                horseId: selectedHorseId,
+                amount: betAmount
+            }]);
 
-        if (result.success) {
-            await fetchRace();
-            playSe("coin");
-            alert("投票しました！");
-            setSelectedHorseId(null);
-        } else {
+            if (result.success) {
+                if (typeof result.newBalance === 'number') {
+                    setData({ ...gameUser, money: result.newBalance });
+                }
+                await fetchRace();
+                playSe("coin");
+                alert("投票しました！");
+                setSelectedHorseId(null);
+            } else {
+                playSe("cancel");
+                alert(result.error || "投票に失敗しました");
+            }
+        } catch (e) {
+            console.error(e);
             playSe("cancel");
-            alert(result.error || "投票に失敗しました");
+            alert("エラーが発生しました");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     if (!isOpen) return null;

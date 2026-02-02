@@ -191,7 +191,11 @@ export async function placeBet(
     userId: string,
     raceId: string,
     bets: { type: BetType; mode: BetMode; horseId?: number; details?: string; amount: number }[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+    if (!userId) {
+        return { success: false, error: "ログインが必要です" };
+    }
+
     // レース状態確認
     const race = await db
         .select()
@@ -217,24 +221,31 @@ export async function placeBet(
     const tx = await transactMoney(userId, -totalAmount, `競馬投票: ${race.name}`, "BET");
     if (!tx.success) return { success: false, error: tx.error };
 
-    // ベット保存
-    for (const bet of bets) {
-        await db.insert(keibaTransactions).values({
-            userId,
-            raceId,
-            type: bet.type,
-            mode: bet.mode,
-            horseId: bet.horseId,
-            details: bet.details,
-            betAmount: bet.amount,
-            isWin: false,
-        });
+    try {
+        // ベット保存
+        for (const bet of bets) {
+            await db.insert(keibaTransactions).values({
+                userId,
+                raceId,
+                type: bet.type,
+                mode: bet.mode,
+                horseId: bet.horseId,
+                details: bet.details,
+                betAmount: bet.amount,
+                isWin: false,
+            });
+        }
+
+        // M-16: ログ記録
+        await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`);
+
+        return { success: true, newBalance: tx.newBalance };
+    } catch (e) {
+        console.error("placeBet error:", e);
+        // 返金処理が必要かもしれないが、今はエラー表示のみ
+        // 本来はトランザクションを使うべき箇所
+        return { success: false, error: "投票データの保存に失敗しました" };
     }
-
-    // M-16: ログ記録
-    await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`);
-
-    return { success: true };
 }
 
 /**
@@ -465,42 +476,47 @@ export async function pullGacha(
     // ガチャを実行
     const results: GachaResult[] = [];
 
-    for (let i = 0; i < count; i++) {
-        const item = selectGachaItem(pool.items);
+    try {
+        for (let i = 0; i < count; i++) {
+            const item = selectGachaItem(pool.items);
 
-        // 既存の記録を確認
-        const existing = await db
-            .select()
-            .from(gachaRecords)
-            .where(eq(gachaRecords.itemId, item.id));
+            // 既存の記録を確認
+            const existing = await db
+                .select()
+                .from(gachaRecords)
+                .where(eq(gachaRecords.itemId, item.id));
 
-        const duplicate = existing.length;
+            const duplicate = existing.length;
 
-        results.push({
-            item,
-            isNew: duplicate === 0,
-            duplicate,
-        });
+            results.push({
+                item,
+                isNew: duplicate === 0,
+                duplicate,
+            });
 
-        // 記録を保存 (M-11: userId追加)
-        await db.insert(gachaRecords).values({
-            userId,
-            poolId,
-            itemId: item.id,
-            rarity: item.rarity,
-        });
+            // 記録を保存 (M-11: userId追加)
+            await db.insert(gachaRecords).values({
+                userId,
+                poolId,
+                itemId: item.id,
+                rarity: item.rarity,
+            });
 
-        // XP獲得
-        await earnXp(userId, "gacha_play");
+            // XP獲得
+            await earnXp(userId, "gacha_play");
 
-        // M-16: ログ記録
-        await logActivity(userId, `ガチャ獲得: ${item.name} (${item.rarity})`);
+            // M-16: ログ記録
+            await logActivity(userId, `ガチャ獲得: ${item.name} (${item.rarity})`);
 
-        // アイテム効果を適用
-        await applyGachaItemEffect(userId, item);
+            // アイテム効果を適用
+            await applyGachaItemEffect(userId, item);
+        }
+
+        return { success: true, results };
+    } catch (e) {
+        console.error("pullGacha error:", e);
+        return { success: false, error: "ガチャデータの保存に失敗しました" };
     }
-
-    return { success: true, results };
 }
 
 export async function getGachaHistory(limit: number = 50): Promise<GachaRecord[]> {

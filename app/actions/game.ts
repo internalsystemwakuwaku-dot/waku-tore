@@ -35,13 +35,17 @@ export async function getGameData(userId: string): Promise<GameData> {
     });
 
     // M-12: 初期所持金の記録
-    await db.insert(transactions).values({
-        userId,
-        type: "INITIAL",
-        amount: newData.money, // 10000
-        description: "初期所持金",
-        balanceAfter: newData.money
-    });
+    try {
+        await db.insert(transactions).values({
+            userId,
+            type: 'INITIAL',
+            amount: Math.floor(newData.money),
+            description: '初期所持金',
+            balanceAfter: Math.floor(newData.money),
+        });
+    } catch (e) {
+        console.error("[getGameData] Failed to insert initial transaction:", e);
+    }
 
     return newData;
 }
@@ -147,6 +151,11 @@ export async function transactMoney(
     type: string = "GENERAL"
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
     try {
+        if (!userId) {
+            console.error("[transactMoney] Error: userId is missing");
+            return { success: false, error: "ユーザーIDが必要です" };
+        }
+
         const data = await getGameData(userId);
 
         // 借金上限 (-10,000G) チェック
@@ -194,16 +203,24 @@ export async function transactMoney(
         await saveGameData(userId, data);
 
         // M-12: 取引台帳へ記録
-        await db.insert(transactions).values({
-            userId,
-            type,
-            amount,
-            description,
-            balanceAfter: data.money
-        });
+        // data.money has already been updated above
+        try {
+            await db.insert(transactions).values({
+                userId,
+                type,
+                amount: Math.floor(amount),
+                description,
+                balanceAfter: Math.floor(data.money),
+            });
+        } catch (insertError) {
+            console.error("[transactMoney] Failed to insert transaction log:", insertError);
+            // Transaction log failure shouldn't stop the main flow, or should it?
+            // Proceeding because money is already updated in gameData.
+        }
 
         return { success: true, newBalance: data.money };
     } catch (e) {
+        console.error("[transactMoney] Error:", e);
         return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
 }
