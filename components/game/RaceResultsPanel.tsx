@@ -29,7 +29,11 @@ export function RaceResultsPanel({ isOpen, onClose }: RaceResultsPanelProps) {
         if (isOpen) {
             startTransition(async () => {
                 const result = await getTodayRaceResults();
-                setRaces(result.races);
+                setRaces(result.map(item => ({
+                    ...item.race,
+                    ranking: item.ranking,
+                    startedAt: item.race.startedAt || ""
+                })));
             });
         }
     }, [isOpen]);

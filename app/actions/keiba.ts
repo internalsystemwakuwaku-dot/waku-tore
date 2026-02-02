@@ -9,7 +9,7 @@
 
 import { db } from "@/lib/db/client";
 import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, lt, gt } from "drizzle-orm";
 import { logActivity } from "./log";
 import type {
     Race,
@@ -31,7 +31,8 @@ import { transactMoney, earnXp } from "./game";
  */
 const RACE_SCHEDULE = [
     { h: 9, m: 55 }, { h: 10, m: 55 }, { h: 11, m: 55 }, { h: 12, m: 30 },
-    { h: 13, m: 55 }, { h: 14, m: 55 }, { h: 15, m: 55 }, { h: 16, m: 55 }, { h: 17, m: 55 }
+    { h: 13, m: 55 }, { h: 14, m: 55 }, { h: 15, m: 55 }, { h: 16, m: 55 },
+    { h: 17, m: 55 }, { h: 21, m: 30 }
 ];
 
 /**
@@ -39,17 +40,22 @@ const RACE_SCHEDULE = [
  * M-13: GASスケジュール同期 (9:55, 10:55... 17:55)
  */
 export async function getActiveRace(userId: string): Promise<{ race: Race; myBets: Bet[] }> {
-    const now = new Date();
+    // 現在時刻をJSTとして取得
+    const now = new Date(); // UTC for createdAt
+    const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
+    const nowJst = new Date(nowJstStr);
 
     // 次のレースを探す
     let nextRaceConfig = null;
-    let raceDate = new Date(now);
+    let raceDate = new Date(nowJst);
 
-    const currentH = now.getHours();
-    const currentM = now.getMinutes();
+    const currentH = nowJst.getHours();
+    const currentM = nowJst.getMinutes();
 
     // 今日の残りのレースから検索
+    // JSTで比較
     for (const s of RACE_SCHEDULE) {
+        // 時間差がある場合、または同時刻で未来の場合
         if (s.h > currentH || (s.h === currentH && s.m > currentM)) {
             nextRaceConfig = s;
             break;
@@ -62,19 +68,37 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         raceDate.setDate(raceDate.getDate() + 1);
     }
 
-    // 発走日時設定
+    // 発走日時設定 (JST)
     raceDate.setHours(nextRaceConfig.h, nextRaceConfig.m, 0, 0);
 
-    // ID生成: YYYYMMDD_HHMM
+    // Dateオブジェクトは内部的にローカル時間を持っているので、
+    // これをUTCのISOStringとして保存するとずれる可能性がある。
+    // しかし、DBにはISOStringで保存し、アプリ全体で「JSTとして解釈」するか、
+    // あるいは「UTCの絶対時刻」として正しい値をセットするか。
+
+    // ここでは「絶対時刻」として正しいUTCに変換して保存するのがベスト。
+    // raceDateは現在「JSTの日時と同じ数値を持つローカルDate」になっている（new Date(jstStr)のため）。
+    // これを正しいUTCに戻すには、-9時間する必要がある。
+
+    // 例: JST 10:55 -> raceDateは Local 10:55
+    // これをUTCにするには、10:55 - 9 = 01:55 UTC にしたい。
+    // new Date(raceDate) でISOStringにすると、Local Timezone (Next.js server usually UTC) が適用される。
+    // ServerがUTCの場合、Local 10:55 -> ISO "T10:55:00Z" になってしまう（実際はT01:55:00Zであるべき）。
+
+    // 解決策: JST文字列表現から正しいDateオブジェクトを作る
     const y = raceDate.getFullYear();
     const m = String(raceDate.getMonth() + 1).padStart(2, "0");
     const d = String(raceDate.getDate()).padStart(2, "0");
     const hh = String(nextRaceConfig.h).padStart(2, "0");
     const mm = String(nextRaceConfig.m).padStart(2, "0");
 
+    // 正しいISO文字列 (JSTオフセット付き) を作成
+    // YYYY-MM-DDTHH:mm:00+09:00
+    const correctIsoWithOffset = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
+    const scheduledTime = new Date(correctIsoWithOffset);
+
     // M-13: IDに分を含める
     const raceId = `${y}${m}${d}_${hh}${mm}`;
-    const scheduledTime = raceDate; // Date object
 
     // DB確認
     let raceData = await db
@@ -416,42 +440,7 @@ export async function getKeibaHistory(
     }));
 }
 
-/**
- * 本日のレース結果を取得 (M-4対応)
- */
-export async function getTodayRaceResults(): Promise<{
-    races: Array<{
-        id: string;
-        name: string;
-        status: string;
-        ranking: number[];
-        horses: Horse[];
-        startedAt: string;
-    }>;
-}> {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-    const races = await db
-        .select()
-        .from(keibaRaces)
-        .where(and(
-            eq(keibaRaces.status, "RESOLVED"),
-            sql`date(${keibaRaces.createdAt}) = ${today}`
-        ))
-        .orderBy(desc(keibaRaces.createdAt))
-        .limit(20);
-
-    return {
-        races: races.map(r => ({
-            id: r.id,
-            name: r.name,
-            status: r.status,
-            ranking: r.resultsJson ? JSON.parse(r.resultsJson) : [],
-            horses: r.horsesJson ? JSON.parse(r.horsesJson) : [],
-            startedAt: r.scheduledAt || r.createdAt || "",
-        }))
-    };
-}
 
 // ========== ガチャ (既存のまま) ==========
 
@@ -642,5 +631,59 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
                 })
                 .where(eq(gameData.userId, userId));
         }
+    }
+}
+
+/**
+ * 本日のレース結果一覧を取得 (M-20)
+ * 完了済みのレースと着順、配当を返す
+ */
+export async function getTodayRaceResults(): Promise<{ race: Race; results: string[]; ranking: number[] }[]> {
+    try {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+
+        const races = await db
+            .select()
+            .from(keibaRaces)
+            .where(
+                and(
+                    eq(keibaRaces.status, "finished"),
+                    gt(keibaRaces.scheduledAt, startOfDay),
+                    lt(keibaRaces.scheduledAt, endOfDay)
+                )
+            )
+            .orderBy(desc(keibaRaces.scheduledAt));
+
+        return races.map(r => {
+            let results: string[] = [];
+            let resultIds: number[] = [];
+            try {
+                resultIds = JSON.parse(r.resultsJson || "[]") as number[];
+                const horses = JSON.parse(r.horsesJson) as Horse[];
+                results = resultIds.map(hid => {
+                    const h = horses.find(h => h.id === hid);
+                    return h ? `${h.name} (${h.odds}倍)` : `ID:${hid}`;
+                });
+            } catch (e) {
+                results = ["解析エラー"];
+            }
+
+            return {
+                race: {
+                    ...r,
+                    status: r.status as "waiting" | "racing" | "finished",
+                    horses: JSON.parse(r.horsesJson),
+                    startedAt: r.scheduledAt || r.createdAt || "" // Map to Race.startedAt (ensure string)
+                },
+                results,
+                ranking: resultIds // Add ranking (M-20 fix for RaceResultsPanel)
+            };
+        });
+
+    } catch (e) {
+        console.error("getTodayRaceResults error:", e);
+        return [];
     }
 }

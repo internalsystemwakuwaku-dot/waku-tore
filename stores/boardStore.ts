@@ -55,6 +55,8 @@ interface BoardStore {
     clearSelection: () => void;
     toggleListVisibility: (listId: string) => void;
     toggleListLock: (listId: string) => void;
+    lockAllLists: () => void;
+    unlockAllLists: () => void;
     setSidebarType: (type: UIState["sidebarType"]) => void;
     setEditingCard: (cardId: string | null) => void;
     setOverdueCardIds: (ids: string[]) => void;
@@ -143,18 +145,30 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
     toggleListLock: (listId) =>
         set((state) => {
-            const newSet = new Set(state.ui.unlockedListIds);
-            if (newSet.has(listId)) {
-                newSet.delete(listId);
+            const newUnlocked = new Set(state.ui.unlockedListIds);
+            if (newUnlocked.has(listId)) {
+                newUnlocked.delete(listId);
             } else {
-                newSet.add(listId);
+                newUnlocked.add(listId);
             }
-            return { ui: { ...state.ui, unlockedListIds: newSet } };
+            return { ui: { ...state.ui, unlockedListIds: newUnlocked } };
         }),
 
-    setSidebarType: (type) =>
+    lockAllLists: () =>
         set((state) => ({
-            ui: { ...state.ui, sidebarType: type },
+            ui: { ...state.ui, unlockedListIds: new Set() }
+        })),
+
+    unlockAllLists: () =>
+        set((state) => {
+            if (!state.data) return state;
+            const allIds = new Set(state.data.lists.map(l => l.id));
+            return { ui: { ...state.ui, unlockedListIds: allIds } };
+        }),
+
+    setSidebarType: (sidebarType) =>
+        set((state) => ({
+            ui: { ...state.ui, sidebarType: sidebarType },
         })),
 
     setEditingCard: (cardId) =>

@@ -13,6 +13,7 @@ import { ShopModal } from "@/components/modals/ShopModal";
 import { HorseRaceModal } from "@/components/modals/HorseRaceModal";
 import { useBoardStore } from "@/stores/boardStore";
 import { useGameStore } from "@/stores/gameStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { GameStatusBar } from "@/components/game/GameStatusBar";
 import { LevelUpModal } from "@/components/game/LevelUpModal";
 import { OmikujiModal } from "@/components/game/OmikujiModal";
@@ -80,8 +81,11 @@ export function BoardClient({ user }: BoardClientProps) {
         ? data.cards.find((c) => c.id === ui.editingCardId)
         : null;
 
+    // Access theme config
+    const { config } = useThemeStore();
+
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className={`min-h-screen ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
             {/* テーマ背景 */}
             <ThemeBackground />
 

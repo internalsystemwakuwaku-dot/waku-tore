@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useBoardStore } from "@/stores/boardStore";
 import { getTrelloData, moveCardToList } from "@/app/actions/trello";
 import { CardItem } from "./CardItem";
+import { useDraggableScroll } from "@/hooks/useDraggableScroll";
 import type { TrelloListInfo } from "@/types/trello";
 import {
     DndContext,
@@ -41,10 +42,13 @@ export function BoardView({ user }: BoardViewProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeCard, setActiveCard] = useState<any>(null);
 
+    // M-18: ドラッグスクロール
+    const scrollRef = useDraggableScroll();
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 3, // Sensitivity adjustment (M-23)
             },
         }),
         useSensor(KeyboardSensor, {
@@ -189,7 +193,7 @@ export function BoardView({ user }: BoardViewProps) {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="overflow-x-auto pb-4 -mx-4 px-4">
+            <div ref={scrollRef} className="overflow-x-auto pb-4 -mx-4 px-4 cursor-grab">
                 <div className="flex gap-4 min-w-max">
                     {data.lists
                         .filter((list) => !ui.hiddenListIds.has(list.id))
@@ -321,6 +325,7 @@ function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnP
                                 key={card.id}
                                 card={card}
                                 hasOverdueMemo={overdueMemoCardIds.includes(card.id)}
+                                disabled={!isUnlocked} // M-21: Lock fix
                             />
                         ))
                     )}

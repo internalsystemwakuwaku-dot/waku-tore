@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { getMemos, addMemo, deleteMemo, toggleMemoStatus } from "@/app/actions/memos";
+import { getMemos, getCardTimeline, addMemo, deleteMemo, toggleMemoStatus } from "@/app/actions/memos";
 import { useBoardStore } from "@/stores/boardStore";
 import type { Memo, MemoType } from "@/types/memo";
 
@@ -46,11 +46,17 @@ export function MemoModal({ userId, cardId, cardName, onClose }: MemoModalProps)
     const loadMemos = async () => {
         setIsLoading(true);
         try {
-            const result = await getMemos(
-                userId,
-                activeTab,
-                activeTab === "card" ? cardId : undefined
-            );
+            let result: Memo[];
+            if (activeTab === "card" && cardId) {
+                // M-26: カードメモの場合は統合タイムラインを取得
+                result = await getCardTimeline(userId, cardId);
+            } else {
+                result = await getMemos(
+                    userId,
+                    activeTab,
+                    undefined // cardId is undefined for personal/shared tabs
+                );
+            }
             setMemoList(result);
         } catch (e) {
             console.error("メモ取得エラー:", e);
@@ -287,6 +293,19 @@ export function MemoModal({ userId, cardId, cardName, onClose }: MemoModalProps)
                                                 >
                                                 </button>
                                                 <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        {memo.id.startsWith("trello-") && (
+                                                            <span className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded border border-blue-200 font-bold flex items-center gap-1">
+                                                                <span className="material-icons text-[10px]">link</span> Trello
+                                                            </span>
+                                                        )}
+                                                        <span className="text-xs font-bold text-gray-600">
+                                                            {memo.userId}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400">
+                                                            {new Date(memo.createdAt).toLocaleString("ja-JP")}
+                                                        </span>
+                                                    </div>
                                                     <p className="text-sm text-gray-800 whitespace-pre-wrap">{memo.content}</p>
                                                     {memo.notifyTime && (
                                                         <p className={`text-xs mt-1 ${isOverdue(memo.notifyTime) ? "text-red-600 font-bold" : "text-gray-500"}`}>
@@ -294,9 +313,6 @@ export function MemoModal({ userId, cardId, cardName, onClose }: MemoModalProps)
                                                             {isOverdue(memo.notifyTime) && " (期限切れ)"}
                                                         </p>
                                                     )}
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        {new Date(memo.createdAt).toLocaleString("ja-JP")}
-                                                    </p>
                                                 </div>
                                                 <button
                                                     onClick={() => handleDeleteMemo(memo.id)}

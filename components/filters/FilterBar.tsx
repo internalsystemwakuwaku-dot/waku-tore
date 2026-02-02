@@ -39,12 +39,14 @@ export function FilterBar() {
             {/* 全解除/全ロック - GAS風 */}
             <div className="flex gap-1">
                 <button
+                    onClick={() => useBoardStore.getState().unlockAllLists()}
                     className="flex items-center gap-0.5 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
                     title="全リストのロックを解除"
                 >
                     🔓 全解除
                 </button>
                 <button
+                    onClick={() => useBoardStore.getState().lockAllLists()}
                     className="flex items-center gap-0.5 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
                     title="全リストをロック"
                 >

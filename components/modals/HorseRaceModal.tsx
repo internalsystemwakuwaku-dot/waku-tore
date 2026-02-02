@@ -25,6 +25,21 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const [betAmount, setBetAmount] = useState<number>(100);
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
+    // M-20: Results Tab
+    const [tab, setTab] = useState<"bet" | "result">("bet");
+    const [todayResults, setTodayResults] = useState<{ race: Race; results: string[] }[]>([]);
+
+    useEffect(() => {
+        if (tab === "result") {
+            // Fetch results
+            import("@/app/actions/keiba").then(({ getTodayRaceResults }) => {
+                getTodayRaceResults().then(res => {
+                    setTodayResults(res);
+                });
+            });
+        }
+    }, [tab]);
+
     // Animation State
     const [phase, setPhase] = useState<"loading" | "betting" | "racing" | "result">("loading");
     const [positions, setPositions] = useState<number[]>([0, 0, 0, 0, 0, 0]);
@@ -228,235 +243,272 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     </div>
                 </div>
 
+                {/* M-20/M-21 Tabs */}
+                {phase !== "racing" && (
+                    <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
+                        <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold transition-colors ${tab === "bet" ? "bg-gray-800 text-white border-b-2 border-yellow-500" : "text-gray-500 hover:bg-gray-800 hover:text-gray-300"}`}>投票</button>
+                        <button onClick={() => setTab("result")} className={`flex-1 py-3 font-bold transition-colors ${tab === "result" ? "bg-gray-800 text-white border-b-2 border-yellow-500" : "text-gray-500 hover:bg-gray-800 hover:text-gray-300"}`}>本日の結果</button>
+                    </div>
+                )}
+
                 <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                    {/* Loading State */}
-                    {isLoading && !race && (
-                        <div className="h-full flex items-center justify-center">
-                            <div className="animate-spin text-4xl">↻</div>
-                        </div>
-                    )}
-
-                    {/* Betting Phase */}
-                    {phase === "betting" && race && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div className="lg:col-span-2 space-y-4">
-                                <div className="flex justify-between items-end mb-2">
-                                    <div className="flex gap-4 items-center">
-                                        <h3 className="text-lg font-bold border-l-4 border-green-500 pl-3">出走馬一覧</h3>
-                                        <div className="flex bg-gray-800 rounded-lg p-1">
-                                            <button
-                                                onClick={() => setBetType("WIN")}
-                                                className={`px-3 py-1 text-xs rounded ${betType === "WIN" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
-                                            >
-                                                単勝 (WIN)
-                                            </button>
-                                            <button
-                                                onClick={() => setBetType("PLACE")}
-                                                className={`px-3 py-1 text-xs rounded ${betType === "PLACE" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
-                                            >
-                                                複勝 (PLACE)
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <span className="text-xs text-gray-400">※1着を予想（単勝） / 3着以内を予想（複勝）</span>
+                    {tab === "bet" ? (
+                        <>
+                            {/* Loading State */}
+                            {isLoading && !race && (
+                                <div className="h-full flex items-center justify-center">
+                                    <div className="animate-spin text-4xl">↻</div>
                                 </div>
+                            )}
 
-                                <div className="grid gap-3">
-                                    {horses.map((horse) => (
-                                        <button
-                                            key={horse.id}
-                                            onClick={() => setSelectedHorseId(horse.id)}
-                                            className={`relative group flex items-center p-4 rounded-xl border transition-all duration-200 ${selectedHorseId === horse.id
-                                                ? "border-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.3)] translate-x-1"
-                                                : "border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-500"
-                                                }`}
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-white text-gray-900 font-bold flex items-center justify-center mr-4 shadow-sm">
-                                                {horse.id}
-                                            </div>
-
-                                            <div className="flex-1 text-left">
-                                                <div className="font-bold text-lg group-hover:text-yellow-300 transition-colors">
-                                                    {horse.name}
-                                                </div>
-                                                <div className="text-xs text-gray-400 flex gap-2">
-                                                    <span style={{ color: horse.color }}>●</span>
-                                                    <span>Condition: Excellent</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="text-right px-4">
-                                                <div className="text-xs text-gray-500">ODDS</div>
-                                                <div className="text-2xl font-mono font-bold text-yellow-400">
-                                                    {betType === "WIN" ? horse.odds.toFixed(1) : (horse.odds / 3).toFixed(1)}
+                            {/* Betting Phase */}
+                            {phase === "betting" && race && (
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                    <div className="lg:col-span-2 space-y-4">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div className="flex gap-4 items-center">
+                                                <h3 className="text-lg font-bold border-l-4 border-green-500 pl-3">出走馬一覧</h3>
+                                                <div className="flex bg-gray-800 rounded-lg p-1">
+                                                    <button
+                                                        onClick={() => setBetType("WIN")}
+                                                        className={`px-3 py-1 text-xs rounded ${betType === "WIN" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
+                                                    >
+                                                        単勝 (WIN)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setBetType("PLACE")}
+                                                        className={`px-3 py-1 text-xs rounded ${betType === "PLACE" ? "bg-yellow-500 text-black font-bold" : "text-gray-400"}`}
+                                                    >
+                                                        複勝 (PLACE)
+                                                    </button>
                                                 </div>
                                             </div>
-
-                                            {selectedHorseId === horse.id && (
-                                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-yellow-400 rounded-r-xl"></div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-800/80 rounded-xl p-6 border border-gray-700/50 flex flex-col h-fit sticky top-0">
-                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                                    <span className="text-xl">🎫</span> 投票パネル
-                                </h3>
-
-                                {selectedHorseId ? (
-                                    <div className="space-y-6 flex-1">
-                                        <div className="bg-black/30 p-4 rounded-lg">
-                                            <div className="text-sm text-gray-400 mb-1">
-                                                Selected ({betType})
-                                            </div>
-                                            <div className="text-xl font-bold text-white">
-                                                {horses.find(h => h.id === selectedHorseId)?.name}
-                                            </div>
+                                            <span className="text-xs text-gray-400">※1着を予想（単勝） / 3着以内を予想（複勝）</span>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-bold text-gray-400">BET AMOUNT</label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="range"
-                                                    min="100"
-                                                    max={Math.min(gameUser.money, 100000)}
-                                                    step="100"
-                                                    value={betAmount}
-                                                    onChange={(e) => setBetAmount(Number(e.target.value))}
-                                                    className="flex-1 accent-yellow-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                                                />
-                                            </div>
-                                            <div className="flex justify-between items-center mt-2">
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => setBetAmount(Math.max(100, betAmount - 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">-100</button>
-                                                    <button onClick={() => setBetAmount(Math.min(gameUser.money, betAmount + 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">+100</button>
-                                                </div>
-                                                <span className="text-2xl font-mono font-bold text-white">
-                                                    {betAmount.toLocaleString()} G
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-4 border-t border-gray-700">
-                                            <div className="flex justify-between text-sm mb-2">
-                                                <span className="text-gray-400">予想払戻金</span>
-                                                <span className="text-yellow-400 font-bold">
-                                                    {Math.floor(betAmount * (betType === "WIN" ? (horses.find(h => h.id === selectedHorseId)?.odds || 1) : (horses.find(h => h.id === selectedHorseId)?.odds || 3) / 3)).toLocaleString()} G
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={handleBet}
-                                                disabled={isLoading}
-                                                className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isLoading ? "処理中..." : "投票する"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-lg p-8">
-                                        <span className="text-4xl mb-4">👈</span>
-                                        <p>右の一覧から</p>
-                                        <p>馬を選択してください</p>
-                                    </div>
-                                )}
-
-                                {myBets.length > 0 && (
-                                    <div className="mt-6 pt-6 border-t border-gray-700">
-                                        <h4 className="font-bold text-sm text-gray-400 mb-3">MY BETS (Total: {myBets.length})</h4>
-                                        <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-                                            {myBets.map(bet => {
-                                                const h = horses.find(h => h.id === bet.horseId);
-                                                return (
-                                                    <div key={bet.id} className="flex justify-between items-center text-xs bg-gray-900/50 p-2 rounded border border-gray-700">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`px-1 rounded ${bet.type === "WIN" ? "bg-yellow-500/20 text-yellow-500" : "bg-blue-500/20 text-blue-500"}`}>
-                                                                {bet.type.substring(0, 1)}
-                                                            </span>
-                                                            <span>{h?.name || `Horse #${bet.horseId}`}</span>
-                                                        </div>
-                                                        <span className="font-mono text-gray-300">{bet.amount.toLocaleString()}</span>
+                                        <div className="grid gap-3">
+                                            {horses.map((horse) => (
+                                                <button
+                                                    key={horse.id}
+                                                    onClick={() => setSelectedHorseId(horse.id)}
+                                                    className={`relative group flex items-center p-4 rounded-xl border transition-all duration-200 ${selectedHorseId === horse.id
+                                                        ? "border-yellow-400 bg-yellow-400/10 shadow-[0_0_15px_rgba(250,204,21,0.3)] translate-x-1"
+                                                        : "border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-500"
+                                                        }`}
+                                                >
+                                                    <div className="w-8 h-8 rounded-full bg-white text-gray-900 font-bold flex items-center justify-center mr-4 shadow-sm">
+                                                        {horse.id}
                                                     </div>
-                                                )
-                                            })}
+
+                                                    <div className="flex-1 text-left">
+                                                        <div className="font-bold text-lg group-hover:text-yellow-300 transition-colors">
+                                                            {horse.name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 flex gap-2">
+                                                            <span style={{ color: horse.color }}>●</span>
+                                                            <span>Condition: Excellent</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="text-right px-4">
+                                                        <div className="text-xs text-gray-500">ODDS</div>
+                                                        <div className="text-2xl font-mono font-bold text-yellow-400">
+                                                            {betType === "WIN" ? horse.odds.toFixed(1) : (horse.odds / 3).toFixed(1)}
+                                                        </div>
+                                                    </div>
+
+                                                    {selectedHorseId === horse.id && (
+                                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-yellow-400 rounded-r-xl"></div>
+                                                    )}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
-                    {(phase === "racing" || phase === "result") && (
-                        <div className="h-full flex flex-col">
-                            {/* Race Track */}
-                            <div className="flex-1 relative flex flex-col justify-center gap-4 py-8">
-                                <div className="absolute right-16 top-0 bottom-0 w-1 bg-white/20 z-0 flex flex-col justify-center items-center">
-                                    <span className="bg-gray-900 text-xs px-1 text-gray-500 rotate-90">GOAL</span>
+                                    <div className="bg-gray-800/80 rounded-xl p-6 border border-gray-700/50 flex flex-col h-fit sticky top-0">
+                                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                            <span className="text-xl">🎫</span> 投票パネル
+                                        </h3>
+
+                                        {selectedHorseId ? (
+                                            <div className="space-y-6 flex-1">
+                                                <div className="bg-black/30 p-4 rounded-lg">
+                                                    <div className="text-sm text-gray-400 mb-1">
+                                                        Selected ({betType})
+                                                    </div>
+                                                    <div className="text-xl font-bold text-white">
+                                                        {horses.find(h => h.id === selectedHorseId)?.name}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-bold text-gray-400">BET AMOUNT</label>
+                                                    <div className="flex items-center gap-3">
+                                                        <input
+                                                            type="range"
+                                                            min="100"
+                                                            max={Math.min(gameUser.money, 100000)}
+                                                            step="100"
+                                                            value={betAmount}
+                                                            onChange={(e) => setBetAmount(Number(e.target.value))}
+                                                            className="flex-1 accent-yellow-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-2">
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setBetAmount(Math.max(100, betAmount - 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">-100</button>
+                                                            <button onClick={() => setBetAmount(Math.min(gameUser.money, betAmount + 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">+100</button>
+                                                        </div>
+                                                        <span className="text-2xl font-mono font-bold text-white">
+                                                            {betAmount.toLocaleString()} G
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4 border-t border-gray-700">
+                                                    <div className="flex justify-between text-sm mb-2">
+                                                        <span className="text-gray-400">予想払戻金</span>
+                                                        <span className="text-yellow-400 font-bold">
+                                                            {Math.floor(betAmount * (betType === "WIN" ? (horses.find(h => h.id === selectedHorseId)?.odds || 1) : (horses.find(h => h.id === selectedHorseId)?.odds || 3) / 3)).toLocaleString()} G
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleBet}
+                                                        disabled={isLoading}
+                                                        className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isLoading ? "処理中..." : "投票する"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-lg p-8">
+                                                <span className="text-4xl mb-4">👈</span>
+                                                <p>右の一覧から</p>
+                                                <p>馬を選択してください</p>
+                                            </div>
+                                        )}
+
+                                        {myBets.length > 0 && (
+                                            <div className="mt-6 pt-6 border-t border-gray-700">
+                                                <h4 className="font-bold text-sm text-gray-400 mb-3">MY BETS (Total: {myBets.length})</h4>
+                                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                                    {myBets.map(bet => {
+                                                        const h = horses.find(h => h.id === bet.horseId);
+                                                        return (
+                                                            <div key={bet.id} className="flex justify-between items-center text-xs bg-gray-900/50 p-2 rounded border border-gray-700">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`px-1 rounded ${bet.type === "WIN" ? "bg-yellow-500/20 text-yellow-500" : "bg-blue-500/20 text-blue-500"}`}>
+                                                                        {bet.type.substring(0, 1)}
+                                                                    </span>
+                                                                    <span>{h?.name || `Horse #${bet.horseId}`}</span>
+                                                                </div>
+                                                                <span className="font-mono text-gray-300">{bet.amount.toLocaleString()}</span>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+                            )}
 
-                                {horses.map((horse, idx) => (
-                                    <div key={horse.id} className="relative z-10 mx-8">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs w-24 truncate text-gray-400">{horse.name}</span>
+                            {(phase === "racing" || phase === "result") && (
+                                <div className="h-full flex flex-col">
+                                    {/* Race Track */}
+                                    <div className="flex-1 relative flex flex-col justify-center gap-4 py-8">
+                                        <div className="absolute right-16 top-0 bottom-0 w-1 bg-white/20 z-0 flex flex-col justify-center items-center">
+                                            <span className="bg-gray-900 text-xs px-1 text-gray-500 rotate-90">GOAL</span>
                                         </div>
-                                        <div className="h-12 bg-gray-800 rounded-full relative overflow-hidden border border-gray-700">
-                                            <div
-                                                className="absolute top-0 bottom-0 transition-transform duration-[50ms] ease-linear flex items-center justify-end pr-2"
-                                                style={{
-                                                    width: "100%",
-                                                    transform: `translateX(-${100 - (positions[idx] || 0)}%)`
-                                                }}
-                                            >
-                                                <span className="text-3xl transform -scale-x-100 inline-block filter drop-shadow-lg">
-                                                    {phase === "result" && race?.winnerId === horse.id ? "👑" : "🏇"}
-                                                </span>
+
+                                        {horses.map((horse, idx) => (
+                                            <div key={horse.id} className="relative z-10 mx-8">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs w-24 truncate text-gray-400">{horse.name}</span>
+                                                </div>
+                                                <div className="h-12 bg-gray-800 rounded-full relative overflow-hidden border border-gray-700">
+                                                    <div
+                                                        className="absolute top-0 bottom-0 transition-transform duration-[50ms] ease-linear flex items-center justify-end pr-2"
+                                                        style={{
+                                                            width: "100%",
+                                                            transform: `translateX(-${100 - (positions[idx] || 0)}%)`
+                                                        }}
+                                                    >
+                                                        <span className="text-3xl transform -scale-x-100 inline-block filter drop-shadow-lg">
+                                                            {phase === "result" && race?.winnerId === horse.id ? "👑" : "🏇"}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
+                                        ))}
+
+                                        {phase === "racing" && !race?.winnerId && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 backdrop-blur-sm">
+                                                <div className="text-center">
+                                                    <div className="text-4xl animate-bounce mb-2">📡</div>
+                                                    <p className="text-yellow-400 font-bold">WAITING FOR SATELLITE FEED...</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {phase === "result" && (
+                                            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 animate-in fade-in zoom-in duration-300">
+                                                <div className="p-8 bg-gray-900 rounded-2xl border-2 border-yellow-500 text-center shadow-[0_0_100px_rgba(234,179,8,0.3)] max-w-md w-full">
+                                                    <h2 className="text-2xl font-bold text-white mb-6 tracking-widest">RESULT</h2>
+
+                                                    <div className="text-6xl mb-6 animate-bounce">
+                                                        {myBets.some(b => b.payout! > 0) ? "🎉" : "💀"}
+                                                    </div>
+
+                                                    <div className="mb-8">
+                                                        <p className="text-gray-400 text-xs mb-1">WINNER</p>
+                                                        <p className="text-3xl font-bold text-white">
+                                                            {horses.find(h => h.id === race?.winnerId)?.name}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="py-4 border-t border-gray-800 bg-gray-800/50 rounded-lg mb-6">
+                                                        <p className="text-sm text-gray-400 mb-1">TOTAL PAYOUT</p>
+                                                        <p className="text-4xl font-mono font-bold text-yellow-400">
+                                                            {myBets.reduce((sum, b) => sum + (b.payout || 0), 0).toLocaleString()} G
+                                                        </p>
+                                                    </div>
+
+                                                    <button onClick={handleClose} className="w-full py-4 bg-gray-700 hover:bg-gray-600 rounded-lg font-bold transition-colors">
+                                                        閉じる
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="space-y-4">
+                            <h3 className="text-white font-bold text-lg mb-2">今日のレース結果一覧 (M-20)</h3>
+                            {todayResults.length === 0 ? (
+                                <div className="text-gray-500 text-center py-10">データ取得中、または結果がありません</div>
+                            ) : (
+                                todayResults.map((r, i) => (
+                                    <div key={i} className="bg-gray-800 p-4 rounded border border-gray-700">
+                                        <div className="flex justify-between text-xs text-gray-400 mb-2">
+                                            <span>{new Date(r.race.startedAt!).toLocaleTimeString()}</span>
+                                            <span className={r.race.status === "finished" ? "text-green-500" : "text-gray-500"}>{r.race.status}</span>
+                                        </div>
+                                        <h4 className="font-bold text-white text-md mb-2">{r.race.name}</h4>
+                                        <div className="bg-black/30 p-2 rounded text-sm font-mono text-gray-300">
+                                            {r.results.map((res, j) => (
+                                                <div key={j} className="flex gap-2">
+                                                    <span className={`font-bold ${j === 0 ? "text-yellow-400" : j === 1 ? "text-gray-300" : "text-orange-400"}`}>{j + 1}着</span>
+                                                    <span>{res}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
-
-                                {phase === "racing" && !race?.winnerId && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 backdrop-blur-sm">
-                                        <div className="text-center">
-                                            <div className="text-4xl animate-bounce mb-2">📡</div>
-                                            <p className="text-yellow-400 font-bold">WAITING FOR SATELLITE FEED...</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {phase === "result" && (
-                                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 animate-in fade-in zoom-in duration-300">
-                                        <div className="p-8 bg-gray-900 rounded-2xl border-2 border-yellow-500 text-center shadow-[0_0_100px_rgba(234,179,8,0.3)] max-w-md w-full">
-                                            <h2 className="text-2xl font-bold text-white mb-6 tracking-widest">RESULT</h2>
-
-                                            <div className="text-6xl mb-6 animate-bounce">
-                                                {myBets.some(b => b.payout! > 0) ? "🎉" : "💀"}
-                                            </div>
-
-                                            <div className="mb-8">
-                                                <p className="text-gray-400 text-xs mb-1">WINNER</p>
-                                                <p className="text-3xl font-bold text-white">
-                                                    {horses.find(h => h.id === race?.winnerId)?.name}
-                                                </p>
-                                            </div>
-
-                                            <div className="py-4 border-t border-gray-800 bg-gray-800/50 rounded-lg mb-6">
-                                                <p className="text-sm text-gray-400 mb-1">TOTAL PAYOUT</p>
-                                                <p className="text-4xl font-mono font-bold text-yellow-400">
-                                                    {myBets.reduce((sum, b) => sum + (b.payout || 0), 0).toLocaleString()} G
-                                                </p>
-                                            </div>
-
-                                            <button onClick={handleClose} className="w-full py-4 bg-gray-700 hover:bg-gray-600 rounded-lg font-bold transition-colors">
-                                                閉じる
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                ))
+                            )}
                         </div>
                     )}
                 </div>

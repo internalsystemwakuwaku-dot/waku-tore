@@ -8,6 +8,7 @@ import { CSS } from "@dnd-kit/utilities";
 interface CardItemProps {
     card: ProcessedCard;
     hasOverdueMemo: boolean;
+    disabled?: boolean;
 }
 
 /**
@@ -15,7 +16,7 @@ interface CardItemProps {
  * 白背景、明瞭な情報表示、ホバーエフェクト
  * DnD対応 (useSortable)
  */
-export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps) {
+export function CardItem({ card, hasOverdueMemo: propHasOverdue, disabled }: CardItemProps) {
     const { ui, toggleCardSelection, setEditingCard } = useBoardStore();
     const isSelected = ui.selectedCardIds.has(card.id);
     const hasOverdueMemo = propHasOverdue || ui.overdueCardIds?.has(card.id);
@@ -30,6 +31,7 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps
         isDragging,
     } = useSortable({
         id: card.id,
+        disabled, // M-21 lock fix
         data: {
             type: "Card",
             card,
@@ -106,6 +108,15 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps
         }
     };
 
+    // M-22: Visual Logic
+    const isMokare = card.roles.systemType?.includes("Mokare");
+    const isNakaeOrSurvey = card.roles.systemType?.includes("中江式") || card.roles.systemType?.includes("アンケート");
+    const hasCBTag = card.trelloLabels.some(l => l.name === "CB");
+
+    let leftBorderClass = card.roles.isPinned ? "border-l-4 border-l-orange-400" : "";
+    if (isMokare) leftBorderClass = "border-l-4 border-l-purple-500";
+    else if (isNakaeOrSurvey) leftBorderClass = "border-l-4 border-l-yellow-400";
+
     return (
         <div
             ref={setNodeRef}
@@ -115,16 +126,24 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             className={`
-                relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200
-                border hover:border-blue-300 cursor-pointer touch-none
+                card-item relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200
+                border hover:border-blue-300 cursor-pointer touch-none overflow-hidden
                 ${isSelected ? "ring-2 ring-blue-500 border-blue-400" : "border-gray-200"}
-                ${card.roles.isPinned ? "border-l-4 border-l-yellow-400" : ""}
+                ${leftBorderClass}
                 ${hasOverdueMemo ? "ring-1 ring-red-400" : ""}
             `}
         >
+            {/* M-22: CB Tag Stripe */}
+            {hasCBTag && (
+                <div className="absolute top-0 left-0 right-0 h-1.5 z-10" style={{
+                    background: "repeating-linear-gradient(45deg, #000, #000 5px, #fff 5px, #fff 10px)",
+                    opacity: 0.8
+                }} />
+            )}
+
             {/* ラベル行 */}
             {card.trelloLabels.length > 0 && (
-                <div className="flex flex-wrap gap-1 px-3 pt-2">
+                <div className="flex flex-wrap gap-1 px-3 pt-3">
                     {card.trelloLabels.map((label, i) => (
                         <span
                             key={i}
@@ -164,7 +183,7 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps
                     </div>
                 )}
 
-                {/* 担当者グリッド - GAS風の2列レイアウト */}
+                {/* 担当者グリッド */}
                 {(card.roles.construction || card.roles.system || card.roles.sales || card.roles.mtg) && (
                     <div className="mt-2 grid grid-cols-2 gap-1">
                         {card.roles.construction && (
@@ -210,18 +229,25 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue }: CardItemProps
                     </div>
                 )}
 
-                {/* メモ表示 */}
-                {(card.roles.memo1 || card.roles.memo2 || card.roles.memo3) && (
-                    <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                        {card.roles.memo1 && <div className="truncate">📝 {card.roles.memo1}</div>}
-                        {card.roles.memo2 && <div className="truncate">📝 {card.roles.memo2}</div>}
-                        {card.roles.memo3 && <div className="truncate">📝 {card.roles.memo3}</div>}
-                    </div>
-                )}
+                {/* M-22: Action Buttons */}
+                <div className="mt-3 flex gap-2">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setEditingCard(card.id); }}
+                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                    >
+                        <span>📝</span> 説明詳細
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setEditingCard(card.id); }}
+                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                    >
+                        <span>⚙️</span> 設定
+                    </button>
+                </div>
             </div>
 
             {/* フッター - Trelloリンク */}
-            <div className="px-3 pb-2 flex items-center justify-between">
+            <div className="px-3 pb-2 pt-1 flex items-center justify-between border-t border-gray-50 mt-1">
                 <button
                     onClick={handleOpenTrello}
                     className="text-xs text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1"

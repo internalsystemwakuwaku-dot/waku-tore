@@ -40,6 +40,16 @@ export async function getMemos(
         conditions.push(eq(memos.cardId, cardId));
     }
 
+    // M-25: プライバシーフィルター (他人の個人メモを除外)
+    // 自分が作成したもの OR 共有メモ OR カードメモ(全員公開) のみ取得
+    conditions.push(
+        or(
+            eq(memos.userId, userId),      // 自分のメモ (personal/shared/card)
+            eq(memos.type, "shared"),      // 共有メモ
+            eq(memos.type, "card")         // カードメモ
+        )
+    );
+
     const result = await db
         .select()
         .from(memos)
@@ -58,6 +68,61 @@ export async function getMemos(
         trelloCommentId: m.trelloCommentId,
         createdAt: m.createdAt || "",
     }));
+}
+
+/**
+ * カードの統合タイムラインを取得 (M-26: Trelloコメント + アプリ内メモ)
+ */
+export async function getCardTimeline(
+    userId: string,
+    cardId: string
+): Promise<Memo[]> {
+    try {
+        // 1. DBメモを取得
+        const dbMemos = await getMemos(userId, "card", cardId);
+
+        // 2. Trelloコメントを取得
+        let trelloComments: any[] = [];
+        try {
+            trelloComments = await getCardComments(cardId);
+        } catch (e) {
+            console.warn("Trello timeline sync failed:", e);
+        }
+
+        // 3. DBに既に登録されているTrelloコメントIDのSet
+        const knownTrelloIds = new Set(
+            dbMemos.filter(m => m.trelloCommentId).map(m => m.trelloCommentId)
+        );
+
+        // 4. Trelloにのみ存在するコメントをMemo形式に変換
+        const trelloOnlyMemos: Memo[] = trelloComments
+            .filter((c: any) => !knownTrelloIds.has(c.id))
+            .map((c: any) => ({
+                id: `trello-${c.id}`, // 一時ID
+                type: "card",
+                userId: c.memberCreator?.fullName || "Trello User", // 表示名として使用
+                content: c.data.text,
+                notifyTime: null,
+                cardId: cardId,
+                relatedUsers: [],
+                isFinished: true, // Trelloコメントは完了扱いとするか、操作不可とする
+                trelloCommentId: c.id,
+                createdAt: c.date,
+            }));
+
+        // 5. マージしてソート (新しい順)
+        const merged = [...dbMemos, ...trelloOnlyMemos];
+        merged.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+        });
+
+        return merged;
+    } catch (e) {
+        console.error("getCardTimeline error:", e);
+        return [];
+    }
 }
 
 /**
