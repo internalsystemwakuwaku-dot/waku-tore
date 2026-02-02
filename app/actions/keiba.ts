@@ -264,6 +264,78 @@ export async function placeBet(
 }
 
 /**
+ * ベットをキャンセルする
+ * [NEW] Bet Cancellation Feature
+ */
+export async function cancelBet(
+    userId: string,
+    betId: string
+): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+    if (!userId) {
+        return { success: false, error: "ログインが必要です" };
+    }
+
+    try {
+        return await db.transaction(async (tx) => {
+            // 1. ベット情報を取得 (排他ロック的に動くかはDBによるが、存在確認)
+            const betRecord = await tx
+                .select()
+                .from(keibaTransactions)
+                .where(and(eq(keibaTransactions.id, Number(betId)), eq(keibaTransactions.userId, userId))) // IDはnumber型
+                .limit(1)
+                .then((res) => res[0]);
+
+            if (!betRecord) {
+                return { success: false, error: "指定された投票が見つからないか、権限がありません" };
+            }
+
+            // 2. レース情報を取得して状態チェック
+            const race = await tx
+                .select()
+                .from(keibaRaces)
+                .where(eq(keibaRaces.id, betRecord.raceId))
+                .limit(1)
+                .then((res) => res[0]);
+
+            if (!race) {
+                return { success: false, error: "レース情報が見つかりません" };
+            }
+
+            if (race.status !== "waiting") {
+                return { success: false, error: "レースが開始されたためキャンセルできません" };
+            }
+
+            // 3. 時間チェック (発走1分前まで)
+            const deadline = new Date(race.scheduledAt!);
+            deadline.setMinutes(deadline.getMinutes() - 1);
+            if (new Date() > deadline) {
+                return { success: false, error: "発走1分前を過ぎているためキャンセルできません" };
+            }
+
+            // 4. ベット削除
+            await tx
+                .delete(keibaTransactions)
+                .where(eq(keibaTransactions.id, Number(betId)));
+
+            // 5. 返金処理
+            const refundAmount = betRecord.betAmount;
+            const txResult = await transactMoney(userId, refundAmount, `競馬キャンセル返金: ${race.name}`, "REFUND", tx);
+
+            if (!txResult.success) {
+                throw new Error("返金処理に失敗しました");
+            }
+
+            await logActivity(userId, `競馬キャンセル: ${race.name} (返金 ${refundAmount}G)`);
+
+            return { success: true, newBalance: txResult.newBalance };
+        });
+    } catch (e) {
+        console.error("[cancelBet] Error:", e);
+        return { success: false, error: "キャンセル処理中にエラーが発生しました" };
+    }
+}
+
+/**
  * レース結果を確定（Server-Side Resolution）
  * [FIX] Atomic Status Update to prevent Race Conditions (Double Payout)
  */

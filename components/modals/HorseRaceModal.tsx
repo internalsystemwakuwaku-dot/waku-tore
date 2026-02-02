@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameStore } from "@/stores/gameStore";
-import { getActiveRace, placeBet } from "@/app/actions/keiba";
+import { getActiveRace, placeBet, cancelBet } from "@/app/actions/keiba";
 import { getGameData } from "@/app/actions/game";
 import type { Race, Bet, Horse } from "@/types/keiba";
 
@@ -202,6 +202,32 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         } catch (e) {
             console.error(e);
             playSe("cancel");
+            alert("エラーが発生しました");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Cancel Bet
+    const handleCancelBet = async (betId: string) => {
+        if (!confirm("この投票を取り消しますか？\n（返金されます）")) return;
+
+        setIsLoading(true);
+        try {
+            const result = await cancelBet(gameUser.userId, betId);
+            if (result.success) {
+                if (typeof result.newBalance === 'number') {
+                    setData({ ...gameUser, money: result.newBalance });
+                }
+                await fetchRace();
+                playSe("coin"); // 返金音としてコイン音使用
+                alert("投票を取り消しました");
+            } else {
+                playSe("cancel");
+                alert(result.error || "取り消しに失敗しました");
+            }
+        } catch (e) {
+            console.error(e);
             alert("エラーが発生しました");
         } finally {
             setIsLoading(false);
@@ -417,7 +443,18 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                     </span>
                                                                     <span>{h?.name || `Horse #${bet.horseId}`}</span>
                                                                 </div>
-                                                                <span className="font-mono text-gray-300">{bet.amount.toLocaleString()}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-mono text-gray-300">{bet.amount.toLocaleString()}</span>
+                                                                    {phase === "betting" && bet.id && (
+                                                                        <button
+                                                                            onClick={() => handleCancelBet(bet.id as string)}
+                                                                            className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                                                                            title="取り消し"
+                                                                        >
+                                                                            ✕
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         )
                                                     })}
