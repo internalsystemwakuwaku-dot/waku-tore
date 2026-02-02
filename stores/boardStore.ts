@@ -25,6 +25,7 @@ interface UIState {
     unlockedListIds: Set<string>;
     sidebarType: "today" | "tomorrow" | "nextMonday" | null;
     editingCardId: string | null;
+    viewingDescriptionCardId: string | null; // M-XX: 説明詳細表示用
     overdueCardIds: Set<string>;
 }
 
@@ -63,6 +64,7 @@ interface BoardStore {
     unlockAllLists: () => void;
     setSidebarType: (type: UIState["sidebarType"]) => void;
     setEditingCard: (cardId: string | null) => void;
+    setViewingDescriptionCard: (cardId: string | null) => void;
     setOverdueCardIds: (ids: string[]) => void;
 
     // フィルタリング済みカード取得
@@ -90,6 +92,7 @@ const initialUI: UIState = {
     unlockedListIds: new Set(),
     sidebarType: null,
     editingCardId: null,
+    viewingDescriptionCardId: null,
     overdueCardIds: new Set(),
 };
 
@@ -194,6 +197,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     setEditingCard: (cardId) =>
         set((state) => ({
             ui: { ...state.ui, editingCardId: cardId },
+        })),
+
+    setViewingDescriptionCard: (cardId) =>
+        set((state) => ({
+            ui: { ...state.ui, viewingDescriptionCardId: cardId },
         })),
 
     setOverdueCardIds: (ids) =>

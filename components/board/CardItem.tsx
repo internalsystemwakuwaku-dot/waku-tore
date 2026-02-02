@@ -17,7 +17,7 @@ interface CardItemProps {
  * DnD対応 (useSortable)
  */
 export function CardItem({ card, hasOverdueMemo: propHasOverdue, disabled }: CardItemProps) {
-    const { ui, toggleCardSelection, setEditingCard } = useBoardStore();
+    const { ui, toggleCardSelection, setEditingCard, setViewingDescriptionCard } = useBoardStore();
     const isSelected = ui.selectedCardIds.has(card.id);
     const hasOverdueMemo = propHasOverdue || ui.overdueCardIds?.has(card.id);
 
@@ -232,7 +232,7 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue, disabled }: Car
                 {/* M-22: Action Buttons */}
                 <div className="mt-3 flex gap-2">
                     <button
-                        onClick={(e) => { e.stopPropagation(); setEditingCard(card.id); }}
+                        onClick={(e) => { e.stopPropagation(); setViewingDescriptionCard(card.id); }}
                         className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
                     >
                         <span>📝</span> 説明詳細

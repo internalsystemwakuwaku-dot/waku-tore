@@ -20,6 +20,7 @@ import { OmikujiModal } from "@/components/game/OmikujiModal";
 import { GachaModal } from "@/components/game/GachaModal";
 import { RankingModal } from "@/components/game/RankingModal";
 import { ScheduleSidebar } from "@/components/sidebar/ScheduleSidebar";
+import { DescriptionSidebar } from "@/components/sidebar/DescriptionSidebar";
 import { BgmPlayer } from "@/components/ui/BgmPlayer";
 import { ToastContainer } from "@/components/ui/Toast";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
@@ -286,28 +287,8 @@ export function BoardClient({ user }: BoardClientProps) {
                 <BoardView user={user} />
             </main>
 
-            {/* 非表示リスト復元ボタン */}
-            {data && ui.hiddenListIds.size > 0 && (
-                <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-2">
-                        非表示リスト: {ui.hiddenListIds.size}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                        {Array.from(ui.hiddenListIds).map((listId) => {
-                            const list = data.lists.find((l) => l.id === listId);
-                            return (
-                                <button
-                                    key={listId}
-                                    onClick={() => useBoardStore.getState().toggleListVisibility(listId)}
-                                    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs rounded transition-colors"
-                                >
-                                    {list?.name || listId} ×
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+            {/* Description Sidebar (M-XX) */}
+            <DescriptionSidebar />
 
             {/* カード編集モーダル */}
             {editingCard && (
