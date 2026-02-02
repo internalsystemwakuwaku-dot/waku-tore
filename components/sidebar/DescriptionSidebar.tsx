@@ -1,118 +1,188 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useBoardStore } from "@/stores/boardStore";
-import ReactMarkdown from "react-markdown";
 
 /**
  * 説明詳細サイドバー
  * 右側からスライドインしてカードのDescriptionを表示する
+ * ユーザー要望によりSankou-gasの挙動（プレーンテキスト+単純リンク化、検索機能付き）を再現
  */
 export function DescriptionSidebar() {
     const { ui, data, setViewingDescriptionCard } = useBoardStore();
     const cardId = ui.viewingDescriptionCardId;
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+
+    // 表示対象のカードID（検索結果から選択された場合はそちらを優先できるが、
+    // 現状は store の viewingDescriptionCardId が正とする）
+    const effectiveCardId = cardId;
 
     // カード情報取得
     const card = useMemo(() => {
-        if (!data || !cardId) return null;
-        return data.cards.find(c => c.id === cardId);
-    }, [data, cardId]);
+        if (!data || !effectiveCardId) return null;
+        return data.cards.find(c => c.id === effectiveCardId);
+    }, [data, effectiveCardId]);
 
-    if (!cardId) return null;
+    // 検索ロジック
+    useEffect(() => {
+        if (!data || !searchQuery.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        const query = searchQuery.toLowerCase();
+        const results = data.cards.filter(c =>
+            (c.name || "").toLowerCase().includes(query)
+        );
+        setSearchResults(results);
+    }, [searchQuery, data]);
+
+    // 説明文のレンダリング（Sankou-gasロジック再現）
+    // 単純な改行反映と、URLの自動リンク化のみを行う
+    const renderDescription = (rawDesc: string) => {
+        if (!rawDesc) return <span className="text-gray-400 italic">(説明はありません)</span>;
+
+        // HTMLエスケープ（Reactがやってくれるが、dangerouslySetInnerHTMLを使うなら自前でやる必要がある。
+        // ここでは安全のため、文字列をReactNodeの配列に変換する方式をとる）
+
+        // URL正規表現
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+        // 行ごとに分割
+        const lines = rawDesc.split('\n');
+
+        return (
+            <div className="text-sm text-gray-800 leading-relaxed font-sans">
+                {lines.map((line, lineIndex) => {
+                    // 行内のURLをリンク化
+                    const parts = line.split(urlRegex);
+                    return (
+                        <div key={lineIndex} className="min-h-[1.2em]">
+                            {parts.map((part, partIndex) => {
+                                if (part.match(urlRegex)) {
+                                    return (
+                                        <a
+                                            key={partIndex}
+                                            href={part}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline break-all"
+                                        >
+                                            {part}
+                                        </a>
+                                    );
+                                }
+                                return <span key={partIndex}>{part}</span>;
+                            })}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    if (!ui.viewingDescriptionCardId && !effectiveCardId) return null;
 
     return (
         <>
             {/* サイドバーパネル */}
-            <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col animate-slide-in">
+            <div className="fixed right-0 top-0 h-full w-[400px] max-w-full bg-white shadow-2xl border-l border-gray-200 z-50 flex flex-col animate-slide-in font-sans">
                 {/* ヘッダー */}
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="text-xl">📝</span>
-                        <h3 className="font-bold text-gray-800 truncate" title={card?.name}>
-                            {card?.name || "詳細"}
-                        </h3>
+                <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm z-10">
+                    <div className="flex items-center gap-2 font-bold text-gray-700 text-lg">
+                        <span className="material-icons text-blue-600">description</span>
+                        <span>説明詳細</span>
                     </div>
                     <button
                         onClick={() => setViewingDescriptionCard(null)}
-                        className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                        className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <span className="material-icons">close</span>
                     </button>
                 </div>
 
-                {/* コンテンツ */}
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                    {card ? (
-                        <div className="space-y-4">
-                            {/* ラベル */}
-                            {card.trelloLabels.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
-                                    {card.trelloLabels.map((label, i) => (
-                                        <span
-                                            key={i}
-                                            className={`px-2 py-0.5 rounded text-xs font-medium bg-${label.color ? label.color + "-100" : "gray-100"} text-${label.color ? label.color + "-800" : "gray-800"}`}
-                                        >
-                                            {label.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                {/* 検索バー */}
+                <div className="p-3 bg-gray-50 border-b border-gray-200">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="店舗名で検索..."
+                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        <span className="material-icons absolute left-2.5 top-2 text-gray-400 text-lg">search</span>
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                            >
+                                <span className="material-icons text-lg">close</span>
+                            </button>
+                        )}
+                    </div>
 
-                            {/* 説明本文 - Markdownレンダリング */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 min-h-[200px] prose prose-sm max-w-none">
-                                {card.desc ? (
-                                    <ReactMarkdown
-                                        components={{
-                                            a: ({ node, ...props }) => (
-                                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all" />
-                                            ),
-                                            p: ({ node, ...props }) => <p {...props} className="mb-2 last:mb-0 leading-relaxed text-gray-800" />,
-                                            ul: ({ node, ...props }) => <ul {...props} className="list-disc list-inside mb-2" />,
-                                            ol: ({ node, ...props }) => <ol {...props} className="list-decimal list-inside mb-2" />,
-                                            li: ({ node, ...props }) => <li {...props} className="mb-1" />,
-                                            blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2" />,
-                                            code: ({ node, ...props }) => <code {...props} className="bg-gray-200 px-1 py-0.5 rounded text-sm font-mono" />,
-                                            pre: ({ node, ...props }) => <pre {...props} className="bg-gray-800 text-white p-2 rounded overflow-x-auto my-2 text-xs" />,
-                                        }}
-                                    >
-                                        {card.desc}
-                                    </ReactMarkdown>
-                                ) : (
-                                    <span className="text-gray-400 italic">説明はありません</span>
-                                )}
+                    {/* 検索結果リスト */}
+                    {searchResults.length > 0 && (
+                        <div className="absolute left-0 right-0 mt-1 mx-3 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto z-20">
+                            {searchResults.map(resCard => (
+                                <div
+                                    key={resCard.id}
+                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 text-sm"
+                                    onClick={() => {
+                                        setViewingDescriptionCard(resCard.id);
+                                        setSearchQuery(""); // 検索クリアして遷移
+                                    }}
+                                >
+                                    {resCard.name}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* コンテンツ */}
+                <div className="flex-1 overflow-y-auto bg-gray-100 p-4 custom-scrollbar">
+                    {card ? (
+                        <div className="bg-white rounded shadow-sm border border-gray-200 p-5 min-h-[300px]">
+                            {/* カードタイトル */}
+                            <h3 className="font-bold text-gray-800 text-base mb-4 border-b border-gray-100 pb-2">
+                                {card.name}
+                            </h3>
+
+                            {/* 説明本文 */}
+                            <div className="mb-6">
+                                {renderDescription(card.desc)}
                             </div>
 
                             {/* フッター情報 */}
                             <div className="pt-4 border-t border-gray-100 text-xs text-gray-500">
-                                <p>最終更新: {new Date(card.roles.updatedAt).toLocaleString("ja-JP")}</p>
                                 <a
                                     href={card.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1 mt-1"
+                                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1 inline-flex"
                                 >
+                                    <span className="material-icons text-sm">open_in_new</span>
                                     Trelloで開く
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
                                 </a>
                             </div>
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-400">
-                            カードが見つかりません
+                            カードを選択してください
                         </div>
                     )}
                 </div>
             </div>
 
             {/* オーバーレイ */}
-            <div
-                className="fixed inset-0 bg-black/20 z-40"
-                onClick={() => setViewingDescriptionCard(null)}
-            />
+            {ui.viewingDescriptionCardId && (
+                <div
+                    className="fixed inset-0 bg-black/20 z-40"
+                    onClick={() => setViewingDescriptionCard(null)}
+                />
+            )}
         </>
     );
 }

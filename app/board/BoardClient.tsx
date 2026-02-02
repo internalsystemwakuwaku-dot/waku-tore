@@ -27,6 +27,7 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { ThemeBackground } from "@/components/ui/ThemeBackground";
 import Link from "next/link";
 import { getOverdueMemoCardIds } from "@/app/actions/memo";
+import { signOut } from "@/lib/auth/client";
 
 interface User {
     id: string;
@@ -58,6 +59,9 @@ export function BoardClient({ user }: BoardClientProps) {
             import("@/app/actions/game").then(async ({ getGameData }) => {
                 try {
                     const gameData = await getGameData(user.id);
+
+                    // GameStoreを更新 (これをしないとHorseRaceModalなどでuserIdが取れない)
+                    useGameStore.getState().setData(gameData);
                     if (gameData.settings.hiddenListIds) {
                         setHiddenListIds(gameData.settings.hiddenListIds);
                     }
@@ -261,14 +265,15 @@ export function BoardClient({ user }: BoardClientProps) {
                         </div>
 
                         {/* ログアウト */}
-                        <form action="/api/auth/sign-out" method="POST">
-                            <button
-                                type="submit"
-                                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded transition-colors"
-                            >
-                                ログアウト
-                            </button>
-                        </form>
+                        <button
+                            onClick={async () => {
+                                await signOut();
+                                window.location.href = "/login";
+                            }}
+                            className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded transition-colors"
+                        >
+                            ログアウト
+                        </button>
                     </div>
                 </div>
 

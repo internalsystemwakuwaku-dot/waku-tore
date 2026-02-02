@@ -14,8 +14,10 @@ import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/typ
 /**
  * ゲームデータを取得（なければ作成）
  */
-export async function getGameData(userId: string): Promise<GameData> {
-    const existing = await db
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getGameData(userId: string, tx?: any): Promise<GameData> {
+    const queryBuilder = tx || db;
+    const existing = await queryBuilder
         .select()
         .from(gameData)
         .where(eq(gameData.userId, userId))
@@ -29,19 +31,24 @@ export async function getGameData(userId: string): Promise<GameData> {
 
     // 新規作成
     const newData = { ...DEFAULT_GAME_DATA, userId };
-    await db.insert(gameData).values({
+    // queryBuilder is already defined at top of function
+    await queryBuilder.insert(gameData).values({
         userId,
         dataJson: JSON.stringify(newData),
     });
 
     // M-12: 初期所持金の記録
-    await db.insert(transactions).values({
-        userId,
-        type: "INITIAL",
-        amount: newData.money, // 10000
-        description: "初期所持金",
-        balanceAfter: newData.money
-    });
+    try {
+        await queryBuilder.insert(transactions).values({
+            userId,
+            type: 'INITIAL',
+            amount: Math.floor(newData.money),
+            description: '初期所持金',
+            balanceAfter: Math.floor(newData.money),
+        });
+    } catch (e) {
+        console.error("[getGameData] Failed to insert initial transaction:", e);
+    }
 
     return newData;
 }
@@ -51,12 +58,16 @@ export async function getGameData(userId: string): Promise<GameData> {
  */
 export async function saveGameData(
     userId: string,
-    data: GameData
+    data: GameData,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tx?: any
 ): Promise<{ success: boolean }> {
     try {
         const now = new Date().toISOString();
 
-        await db
+        const queryBuilder = tx || db;
+
+        await queryBuilder
             .update(gameData)
             .set({
                 dataJson: JSON.stringify(data),
@@ -144,10 +155,17 @@ export async function transactMoney(
     userId: string,
     amount: number,
     description: string,
-    type: string = "GENERAL"
+    type: string = "GENERAL",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tx?: any
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
     try {
-        const data = await getGameData(userId);
+        if (!userId) {
+            console.error("[transactMoney] Error: userId is missing");
+            return { success: false, error: "ユーザーIDが必要です" };
+        }
+
+        const data = await getGameData(userId, tx);
 
         // 借金上限 (-10,000G) チェック
         const DEBT_LIMIT = -10000;
@@ -191,19 +209,28 @@ export async function transactMoney(
             data.totalEarned += amount;
         }
 
-        await saveGameData(userId, data);
+        await saveGameData(userId, data, tx);
 
         // M-12: 取引台帳へ記録
-        await db.insert(transactions).values({
-            userId,
-            type,
-            amount,
-            description,
-            balanceAfter: data.money
-        });
+        // data.money has already been updated above
+        try {
+            const queryBuilder = tx || db;
+            await queryBuilder.insert(transactions).values({
+                userId,
+                type,
+                amount: Math.floor(amount),
+                description,
+                balanceAfter: Math.floor(data.money),
+            });
+        } catch (insertError) {
+            console.error("[transactMoney] Failed to insert transaction log:", insertError);
+            // Transaction log failure shouldn't stop the main flow, or should it?
+            // Proceeding because money is already updated in gameData.
+        }
 
         return { success: true, newBalance: data.money };
     } catch (e) {
+        console.error("[transactMoney] Error:", e);
         return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
 }
@@ -401,7 +428,7 @@ export async function reconcileBalance(
             .where(eq(transactions.userId, userId))
             .then(res => res[0]);
 
-        let calculatedBalance = result.total;
+        const calculatedBalance = result.total;
 
         // レガシーデータ対応: INITIAL取引がなく、かつ残高が整合しない場合
         // 取引履歴が途中から始まっているユーザーへの簡易対応
@@ -417,11 +444,13 @@ export async function reconcileBalance(
             };
         }
 
+        const calculatedBalanceFinal = result.total;
+
         const currentBalance = data.money;
-        const mismatch = currentBalance !== calculatedBalance;
+        const mismatch = currentBalance !== calculatedBalanceFinal;
 
         if (mismatch) {
-            console.warn(`[reconcileBalance] User ${userId}: mismatch detected. Current: ${currentBalance}, Calculated: ${calculatedBalance}`);
+            console.warn(`[reconcileBalance] User ${userId}: mismatch detected. Current: ${currentBalance}, Calculated: ${calculatedBalanceFinal}`);
             // オプション: 自動修正 (この実装ではログのみ)
             // data.money = calculatedBalance;
             // await saveGameData(userId, data);

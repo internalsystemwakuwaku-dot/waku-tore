@@ -218,6 +218,14 @@ export async function getTrelloData(): Promise<TrelloDataResponse> {
             filterOptions,
         };
 
+        // デバッグログ: 先頭5件のカード名と説明を表示
+        console.log("--- Trello Data Debug ---");
+        processedCards.slice(0, 5).forEach(c => {
+            console.log(`[Card: ${c.name}] Desc length: ${c.desc.length}`);
+            console.log(`Desc preview: ${c.desc.substring(0, 50)}...`);
+        });
+        console.log("------------------------");
+
         return { data, error: null };
     } catch (e) {
         console.error("getTrelloData error:", e);
@@ -567,3 +575,5 @@ export async function updateTrelloDescription(
         };
     }
 }
+
+

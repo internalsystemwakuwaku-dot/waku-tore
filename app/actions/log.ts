@@ -2,18 +2,17 @@
 
 import { db } from "@/lib/db/client";
 import { activityLogs } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 /**
  * ユーザー行動をログに記録
  */
 export async function logActivity(userId: string, action: string, cardId?: string | null) {
     try {
-        await db.insert(activityLogs).values({
-            userId,
-            action,
-            cardId: cardId || null,
-        });
+        await db.run(sql`
+            INSERT INTO "activity_logs" (user_id, action, card_id)
+            VALUES (${userId}, ${action}, ${cardId || null})
+        `);
     } catch (e) {
         console.error("logActivity error:", e);
     }

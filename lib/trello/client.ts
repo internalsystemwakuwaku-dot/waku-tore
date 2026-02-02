@@ -37,6 +37,7 @@ export async function trelloFetch<T>(
         try {
             const response = await fetch(url.toString(), {
                 ...options,
+                cache: "no-store",
                 headers: {
                     "Content-Type": "application/json",
                     ...options.headers,
@@ -235,3 +236,5 @@ export async function getCardComments(
 > {
     return trelloFetch(`/cards/${cardId}/actions?filter=commentCard&limit=50`);
 }
+
+
