@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { BoardData, ProcessedCard, TrelloListInfo } from "@/types/trello";
+import { updateGameSettings } from "@/app/actions/game";
 
 // フィルター状態
 interface FilterState {
@@ -33,6 +34,7 @@ interface BoardStore {
     data: BoardData | null;
     isLoading: boolean;
     error: string | null;
+    currentUserId: string | null;
 
     // フィルター
     filters: FilterState;
@@ -44,6 +46,7 @@ interface BoardStore {
     setData: (data: BoardData | null) => void;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
+    setCurrentUserId: (userId: string | null) => void;
 
     // フィルター操作
     setFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
@@ -54,6 +57,7 @@ interface BoardStore {
     toggleCardSelection: (cardId: string) => void;
     clearSelection: () => void;
     toggleListVisibility: (listId: string) => void;
+    setHiddenListIds: (ids: string[]) => void; // 初期化用
     toggleListLock: (listId: string) => void;
     lockAllLists: () => void;
     unlockAllLists: () => void;
@@ -93,12 +97,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     data: null,
     isLoading: false,
     error: null,
+    currentUserId: null,
     filters: initialFilters,
     ui: initialUI,
 
     setData: (data) => set({ data }),
     setLoading: (isLoading) => set({ isLoading }),
     setError: (error) => set({ error }),
+    setCurrentUserId: (userId) => set({ currentUserId: userId }),
 
     setFilter: (key, value) =>
         set((state) => ({
@@ -132,16 +138,30 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
             ui: { ...state.ui, selectedCardIds: new Set() },
         })),
 
-    toggleListVisibility: (listId) =>
-        set((state) => {
-            const newSet = new Set(state.ui.hiddenListIds);
-            if (newSet.has(listId)) {
-                newSet.delete(listId);
-            } else {
-                newSet.add(listId);
-            }
-            return { ui: { ...state.ui, hiddenListIds: newSet } };
-        }),
+    toggleListVisibility: (listId) => {
+        const state = get();
+        const newSet = new Set(state.ui.hiddenListIds);
+        if (newSet.has(listId)) {
+            newSet.delete(listId);
+        } else {
+            newSet.add(listId);
+        }
+
+        // サーバーへ設定保存
+        if (state.currentUserId) {
+            updateGameSettings(state.currentUserId, {
+                hiddenListIds: Array.from(newSet)
+            }).catch(e => console.error("Failed to save list visibility:", e));
+        }
+
+        set({ ui: { ...state.ui, hiddenListIds: newSet } });
+    },
+
+    setHiddenListIds: (ids) => {
+        set((state) => ({
+            ui: { ...state.ui, hiddenListIds: new Set(ids) }
+        }));
+    },
 
     toggleListLock: (listId) =>
         set((state) => {

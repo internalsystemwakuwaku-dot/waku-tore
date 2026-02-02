@@ -27,6 +27,7 @@ export interface GameSettings {
     theme: string;
     enableNotifications: boolean;
     enableAnimations: boolean;
+    hiddenListIds?: string[]; // M-XX: 表示リスト設定の永続化
 }
 
 // ゲーム統計

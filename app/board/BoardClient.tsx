@@ -41,9 +41,31 @@ interface BoardClientProps {
  * ボードクライアント - GAS風ヘッダーデザイン
  */
 export function BoardClient({ user }: BoardClientProps) {
-    const { ui, toggleBulkMode, clearSelection, data, setEditingCard, setOverdueCardIds } = useBoardStore();
+    const { ui, toggleBulkMode, clearSelection, data, setEditingCard, setOverdueCardIds, setCurrentUserId, setHiddenListIds } = useBoardStore();
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
+
+
+    useEffect(() => {
+        if (user?.id) {
+            setCurrentUserId(user.id);
+            // ゲームデータを取得して設定を反映
+            // Note: 本来は useGameStore で管理されているが、ここでは簡易的にServer Actionを直接呼ぶか、
+            // すでに useGameStore でロードされていればそこから取る。
+            // しかし useGameStore は polling されているわけではないかもしれない。
+            // 確実なのは action を呼ぶこと。
+            import("@/app/actions/game").then(async ({ getGameData }) => {
+                try {
+                    const gameData = await getGameData(user.id);
+                    if (gameData.settings.hiddenListIds) {
+                        setHiddenListIds(gameData.settings.hiddenListIds);
+                    }
+                } catch (e) {
+                    console.error("Failed to load user settings:", e);
+                }
+            });
+        }
+    }, [user?.id, setCurrentUserId, setHiddenListIds]);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showOmikujiModal, setShowOmikujiModal] = useState(false);
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
