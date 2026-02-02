@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useBoardStore } from "@/stores/boardStore";
+import ReactMarkdown from "react-markdown";
 
 /**
  * 説明詳細サイドバー
@@ -18,36 +19,6 @@ export function DescriptionSidebar() {
     }, [data, cardId]);
 
     if (!cardId) return null;
-
-    // リンクを整形する簡易レンダラー
-    const renderContent = (content: string) => {
-        if (!content) return <span className="text-gray-400 italic">説明はありません</span>;
-
-        // URLをリンクに変換
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const parts = content.split(urlRegex);
-
-        return (
-            <div className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">
-                {parts.map((part, i) => {
-                    if (part.match(urlRegex)) {
-                        return (
-                            <a
-                                key={i}
-                                href={part}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline break-all"
-                            >
-                                {part}
-                            </a>
-                        );
-                    }
-                    return part;
-                })}
-            </div>
-        );
-    };
 
     return (
         <>
@@ -89,9 +60,28 @@ export function DescriptionSidebar() {
                                 </div>
                             )}
 
-                            {/* 説明本文 */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 min-h-[200px]">
-                                {renderContent(card.desc)}
+                            {/* 説明本文 - Markdownレンダリング */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 min-h-[200px] prose prose-sm max-w-none">
+                                {card.desc ? (
+                                    <ReactMarkdown
+                                        components={{
+                                            a: ({ node, ...props }) => (
+                                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all" />
+                                            ),
+                                            p: ({ node, ...props }) => <p {...props} className="mb-2 last:mb-0 leading-relaxed text-gray-800" />,
+                                            ul: ({ node, ...props }) => <ul {...props} className="list-disc list-inside mb-2" />,
+                                            ol: ({ node, ...props }) => <ol {...props} className="list-decimal list-inside mb-2" />,
+                                            li: ({ node, ...props }) => <li {...props} className="mb-1" />,
+                                            blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2" />,
+                                            code: ({ node, ...props }) => <code {...props} className="bg-gray-200 px-1 py-0.5 rounded text-sm font-mono" />,
+                                            pre: ({ node, ...props }) => <pre {...props} className="bg-gray-800 text-white p-2 rounded overflow-x-auto my-2 text-xs" />,
+                                        }}
+                                    >
+                                        {card.desc}
+                                    </ReactMarkdown>
+                                ) : (
+                                    <span className="text-gray-400 italic">説明はありません</span>
+                                )}
                             </div>
 
                             {/* フッター情報 */}
