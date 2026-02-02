@@ -1,0 +1,14 @@
+﻿
+C:\wakuwakusystem\WAKU-WAKU-Trello\waku-tore\app\actions\game.ts
+  431:13  error  'calculatedBalance' is never reassigned. Use 'const' instead  prefer-const
+
+C:\wakuwakusystem\WAKU-WAKU-Trello\waku-tore\app\actions\keiba.ts
+  182:9   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  700:22  warning  'e' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+
+C:\wakuwakusystem\WAKU-WAKU-Trello\waku-tore\components\modals\HorseRaceModal.tsx
+  76:8  warning  React Hook useCallback has a missing dependency: 'phase'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+笨・4 problems (1 error, 3 warnings)
+  1 error and 1 warning potentially fixable with the `--fix` option.
+

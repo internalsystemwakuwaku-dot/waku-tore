@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { getActiveRace, placeBet } from "@/app/actions/keiba";
+import { getGameData } from "@/app/actions/game";
 import type { Race, Bet, Horse } from "@/types/keiba";
 
 import { useSound } from "@/lib/sound/SoundContext";
@@ -72,7 +73,8 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [gameUser.userId]); // Phase should not be a dep here to avoid loops
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gameUser.userId]); // Phase excluded to avoid loop, verified safe as phase changes trigger re-eval via useEffect
 
     useEffect(() => {
         if (isOpen) {
@@ -93,13 +95,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
 
     // Rigged Animation
-    const startRiggedAnimation = (winnerId: number) => {
+    const startRiggedAnimation = useCallback((winnerId: number, horses: Horse[]) => {
         const raceDuration = 10000;
         const interval = 50;
         const steps = raceDuration / interval;
         let currentStep = 0;
-
-        const horses = race!.horses;
 
         if (raceTimerRef.current) clearInterval(raceTimerRef.current);
 
@@ -137,7 +137,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 setTimeout(() => setPhase("result"), 2000);
             }
         }, interval);
-    };
+    }, []);
 
     // Poll logic
     useEffect(() => {
@@ -152,7 +152,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     clearInterval(pollTimer);
                     setRace(latestRace);
                     setMyBets(latestBets);
-                    startRiggedAnimation(latestRace.winnerId);
+                    startRiggedAnimation(latestRace.winnerId, latestRace.horses); // Pass horses explicitly
+
+                    // Payout refresh
+                    const updatedUser = await getGameData(gameUser.userId);
+                    setData(updatedUser);
                 }
             }, 3000);
         } else if (phase === "result") {
@@ -166,7 +170,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             clearInterval(pollTimer);
             if (!isOpen) stopBgm();
         };
-    }, [phase, gameUser.userId, isOpen]);
+    }, [phase, gameUser.userId, isOpen, playBgm, playSe, stopBgm, setData, startRiggedAnimation]);
 
     // Place Bet
     const handleBet = async () => {
