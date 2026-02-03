@@ -771,6 +771,23 @@ export async function getTodayRaceResults(): Promise<{
         const d = String(nowJst.getUTCDate()).padStart(2, "0");
         const todayPrefix = `${y}${m}${d}_%`;
 
+        // まず本日分のレースを取得し、時刻を過ぎたwaitingレースがあれば確定処理を走らせる
+        const todayRaces = await db
+            .select()
+            .from(keibaRaces)
+            .where(like(keibaRaces.id, todayPrefix))
+            .orderBy(desc(keibaRaces.scheduledAt));
+
+        for (const r of todayRaces) {
+            if (r.status === "waiting" && r.scheduledAt) {
+                const scheduled = new Date(r.scheduledAt);
+                if (now >= scheduled) {
+                    await resolveRace(r.id);
+                }
+            }
+        }
+
+        // 確定済みを再取得
         const races = await db
             .select()
             .from(keibaRaces)
