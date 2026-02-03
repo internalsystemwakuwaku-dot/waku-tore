@@ -294,8 +294,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const minutes = Math.floor(timeDiff / 60);
     const seconds = timeDiff % 60;
     const DEBT_LIMIT = -10000;
-    const availableFunds = gameUser.money - DEBT_LIMIT;
-    const maxBetAmount = Math.min(Math.max(100, availableFunds), 100000);
+    const DAILY_LOAN_LIMIT = 10000;
+    const today = new Date().toISOString().slice(0, 10);
+    const loanUsedToday = gameUser.lastLoanDate === today ? (gameUser.todayLoanAmount || 0) : 0;
+    const remainingLoan = Math.max(0, DAILY_LOAN_LIMIT - loanUsedToday);
+    const maxBetByDebtLimit = gameUser.money - DEBT_LIMIT;
+    const maxBetByDailyLoan = Math.max(0, gameUser.money) + remainingLoan;
+    const maxBetAmount = Math.min(Math.max(100, Math.min(maxBetByDebtLimit, maxBetByDailyLoan)), 100000);
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -448,11 +453,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         </div>
                                                         <span className="font-mono">{betAmount.toLocaleString()} G</span>
                                                     </div>
-                                                    {gameUser.money < 0 && (
-                                                        <p className="text-xs text-red-400">
-                                                            借金中 (残り借入可能: {Math.max(0, -DEBT_LIMIT + gameUser.money).toLocaleString()}G)
-                                                        </p>
-                                                    )}
+                                                    <p className="text-xs text-red-400">
+                                                        借入残り (本日): {remainingLoan.toLocaleString()}G
+                                                    </p>
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700 mt-4">

@@ -188,8 +188,10 @@ export async function transactMoney(
                 data.todayLoanAmount = 0;
             }
 
-            // 実際に借入となる額を計算
-            const actualLoan = Math.abs(Math.min(0, data.money + amount));
+            // 実際に借入となる増分だけを計算
+            const prevDebt = Math.max(0, -data.money);
+            const nextDebt = Math.max(0, -(data.money + amount));
+            const actualLoan = Math.max(0, nextDebt - prevDebt);
             const todayTotal = (data.todayLoanAmount || 0) + actualLoan;
 
             if (todayTotal > DAILY_LOAN_LIMIT) {
