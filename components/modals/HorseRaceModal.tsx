@@ -81,7 +81,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [isOpen, fetchRace]);
 
     useEffect(() => {
-        if (tab === "result") {
+        if (tab !== "result" || !isOpen) return;
+
+        const fetchResults = () => {
             setResultsLoading(true);
             setResultsError(null);
             getTodayRaceResults()
@@ -92,8 +94,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     setTodayResults([]);
                 })
                 .finally(() => setResultsLoading(false));
-        }
-    }, [tab]);
+        };
+
+        fetchResults();
+        const interval = setInterval(fetchResults, 5000);
+        return () => clearInterval(interval);
+    }, [tab, isOpen]);
 
     useEffect(() => {
         if (phase === "result") {
