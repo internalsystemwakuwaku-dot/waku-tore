@@ -177,7 +177,7 @@ export async function transactMoney(
     try {
         if (!userId) {
             console.error("[transactMoney] Error: userId is missing");
-            return { success: false, error: "ユーザーIDが忁E��でぁE };
+            return { success: false, error: "ユーザーIDが不正です" };
         }
 
         const data = await getGameData(userId, tx);
@@ -272,7 +272,7 @@ export async function purchaseItem(
         // 1. お��を引き落とぁE(Transaction Ledger経由)
         const tx = await transactMoney(userId, -price, `アイチE��購入: ${itemId}`, "ITEM_PURCHASE");
         if (!tx.success) {
-            return { success: false, error: tx.error || "所持E��が不足してぁE��ぁE };
+            return { success: false, error: tx.error || "所持金が不足しています" };
         }
 
         // 2. チE�Eタを�E取得してインベントリ更新 (お��は更新済み)
