@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameStore } from "@/stores/gameStore";
-import { getActiveRace, placeBet, cancelBet } from "@/app/actions/keiba";
+import { getActiveRace, placeBet, cancelBet, getTodayRaceResults } from "@/app/actions/keiba";
 import { getGameData } from "@/app/actions/game";
 import type { Race, Bet, Horse } from "@/types/keiba";
 
@@ -32,12 +32,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     useEffect(() => {
         if (tab === "result") {
-            // Fetch results
-            import("@/app/actions/keiba").then(({ getTodayRaceResults }) => {
-                getTodayRaceResults().then(res => {
+            // Fetch results using Server Action
+            getTodayRaceResults()
+                .then(res => {
+                    console.log("[HorseRaceModal] Today's results:", res);
                     setTodayResults(res);
+                })
+                .catch(err => {
+                    console.error("[HorseRaceModal] Failed to fetch results:", err);
+                    setTodayResults([]);
                 });
-            });
         }
     }, [tab]);
 

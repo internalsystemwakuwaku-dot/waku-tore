@@ -14,7 +14,7 @@
 
 import { db } from "@/lib/db/client";
 import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
-import { eq, desc, and, lt, gt } from "drizzle-orm";
+import { eq, desc, and, lt, gt, gte, lte } from "drizzle-orm";
 import { logActivity } from "./log";
 import type {
     Race,
@@ -767,22 +767,32 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
         const m = String(nowJst.getMonth() + 1).padStart(2, "0");
         const d = String(nowJst.getDate()).padStart(2, "0");
 
-        // ISO形式でJSTオフセット付きの範囲を作成
-        const startOfDay = `${y}-${m}-${d}T00:00:00+09:00`;
-        const endOfDay = `${y}-${m}-${d}T23:59:59+09:00`;
+        // JSTの本日の範囲をUTCに変換
+        // JST 00:00:00 = UTC 前日15:00:00
+        // JST 23:59:59 = UTC 本日14:59:59
+        const startOfDayJst = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
+        const endOfDayJst = new Date(`${y}-${m}-${d}T23:59:59+09:00`);
 
-        // scheduledAtはJSTオフセット付きで保存されているので、ISO文字列として比較可能
+        // UTC ISO文字列に変換
+        const startUtc = startOfDayJst.toISOString();
+        const endUtc = endOfDayJst.toISOString();
+
+        console.log(`[getTodayRaceResults] JST Today: ${y}-${m}-${d}, UTC Range: ${startUtc} to ${endUtc}`);
+
+        // scheduledAtはUTC ISO文字列で保存されている
         const races = await db
             .select()
             .from(keibaRaces)
             .where(
                 and(
                     eq(keibaRaces.status, "finished"),
-                    gt(keibaRaces.scheduledAt, new Date(startOfDay).toISOString()),
-                    lt(keibaRaces.scheduledAt, new Date(endOfDay).toISOString())
+                    gte(keibaRaces.scheduledAt, startUtc),
+                    lte(keibaRaces.scheduledAt, endUtc)
                 )
             )
             .orderBy(desc(keibaRaces.scheduledAt));
+
+        console.log(`[getTodayRaceResults] Found ${races.length} finished races`);
 
         return races.map(r => {
             let results: string[] = [];
