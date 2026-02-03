@@ -11,6 +11,7 @@ export interface GameData {
     money: number;
     totalEarned: number;
     inventory: Record<string, number>;  // アイテムID -> 個数
+    activeBoosts?: Record<string, number>; // ?????ID -> ??(ms)
     settings: GameSettings;
     stats: GameStats;
     lastDailyBonus: string | null;
