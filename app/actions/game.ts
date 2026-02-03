@@ -6,7 +6,7 @@
  */
 
 import { db } from "@/lib/db/client";
-import { gameData, transactions, keibaTransactions } from "@/lib/db/schema";
+import { gameData, transactions, keibaTransactions, users } from "@/lib/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import type { GameData, XpEventType, RankingEntry } from "@/types/game";
 import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/types/game";
@@ -398,14 +398,18 @@ export async function claimDailyBonus(
  * ランキング取得（XP順）
  */
 export async function getXpRanking(limit: number = 20): Promise<RankingEntry[]> {
-    const allData = await db.select().from(gameData);
+    const allData = await db
+        .select()
+        .from(gameData)
+        .leftJoin(users, eq(users.id, gameData.userId));
 
     const entries = allData
         .map((row) => {
-            const data = JSON.parse(row.dataJson) as GameData;
+            const data = JSON.parse(row.game_data.dataJson) as GameData;
+            const userName = row.users?.name || row.users?.email || row.game_data.userId;
             return {
-                userId: row.userId,
-                userName: row.userId, // TODO: ユーザー名取得
+                userId: row.game_data.userId,
+                userName,
                 value: data.xp,
                 rank: 0,
             };
@@ -425,14 +429,18 @@ export async function getXpRanking(limit: number = 20): Promise<RankingEntry[]> 
  * ランキング取得（所持金順）
  */
 export async function getMoneyRanking(limit: number = 20): Promise<RankingEntry[]> {
-    const allData = await db.select().from(gameData);
+    const allData = await db
+        .select()
+        .from(gameData)
+        .leftJoin(users, eq(users.id, gameData.userId));
 
     const entries = allData
         .map((row) => {
-            const data = JSON.parse(row.dataJson) as GameData;
+            const data = JSON.parse(row.game_data.dataJson) as GameData;
+            const userName = row.users?.name || row.users?.email || row.game_data.userId;
             return {
-                userId: row.userId,
-                userName: row.userId,
+                userId: row.game_data.userId,
+                userName,
                 value: data.money,
                 rank: 0,
             };
@@ -529,14 +537,18 @@ export async function reconcileBalance(
  * 借金ランキング（所持金マイナス順）
  */
 export async function getDebtRanking(limit: number = 20): Promise<RankingEntry[]> {
-    const allData = await db.select().from(gameData);
+    const allData = await db
+        .select()
+        .from(gameData)
+        .leftJoin(users, eq(users.id, gameData.userId));
 
     const entries = allData
         .map((row) => {
-            const data = JSON.parse(row.dataJson) as GameData;
+            const data = JSON.parse(row.game_data.dataJson) as GameData;
+            const userName = row.users?.name || row.users?.email || row.game_data.userId;
             return {
-                userId: row.userId,
-                userName: row.userId,
+                userId: row.game_data.userId,
+                userName,
                 value: data.money,
                 rank: 0,
             };
@@ -559,14 +571,15 @@ export async function getPayoutRanking(limit: number = 20): Promise<RankingEntry
     const records = await db
         .select()
         .from(keibaTransactions)
+        .leftJoin(users, eq(users.id, keibaTransactions.userId))
         .where(eq(keibaTransactions.isWin, true))
         .orderBy(desc(keibaTransactions.payout))
         .limit(limit);
 
     return records.map((r, i) => ({
-        userId: r.userId,
-        userName: r.userId,
-        value: r.payout,
+        userId: r.keiba_transactions.userId,
+        userName: r.users?.name || r.users?.email || r.keiba_transactions.userId,
+        value: r.keiba_transactions.payout,
         rank: i + 1,
     }));
 }
