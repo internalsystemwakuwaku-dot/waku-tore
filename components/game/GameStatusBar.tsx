@@ -1,7 +1,9 @@
 "use client";
 
 
+import { useEffect, useMemo, useState } from "react";
 import { useGameStore } from "@/stores/gameStore";
+import { isBoostActive } from "@/lib/gameEffects";
 
 /**
  * ゲームステータスバー - GAS風のXP/レベル/コイン表示
@@ -21,6 +23,41 @@ interface GameStatusBarProps {
 export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGacha }: GameStatusBarProps) {
     const { data, getLevelProgress, addXP } = useGameStore();
     const progress = getLevelProgress();
+    const [nowMs, setNowMs] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const activeBoosts = data.activeBoosts || {};
+
+    const boostLabels = useMemo(() => ([
+        { id: "booster_xp2", label: "XP2", icon: "XP" },
+        { id: "booster_xp3", label: "XP3", icon: "XP" },
+        { id: "booster_combo", label: "+5XP", icon: "+" },
+        { id: "booster_focus", label: "+3XP", icon: "+" },
+        { id: "booster_money", label: "Money", icon: "G" },
+        { id: "booster_gacha", label: "Gacha-20%", icon: "G" },
+        { id: "booster_lucky", label: "Lucky", icon: "L" },
+        { id: "booster_lucky2", label: "Lucky+", icon: "L+" },
+    ]), []);
+
+    const activeBoostList = boostLabels
+        .map((b) => {
+            const expiresAt = activeBoosts[b.id];
+            const remainingMs = typeof expiresAt === "number" ? Math.max(0, expiresAt - nowMs) : 0;
+            return { ...b, remainingMs };
+        })
+        .filter((b) => isBoostActive(activeBoosts, b.id, nowMs))
+        .sort((a, b) => a.remainingMs - b.remainingMs);
+
+    const formatRemaining = (ms: number) => {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return `${min}:${String(sec).padStart(2, "0")}`;
+    };
 
     // クッキークリック（+2 XP）
     const handleCookieClick = () => {
@@ -127,6 +164,26 @@ export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGa
                 >
                     🎰
                 </button>
+
+            {/* ?????? */}
+            {activeBoostList.length > 0 && (
+                <>
+                    <div className="w-px h-8 bg-gray-200" />
+                    <div className="flex items-center gap-1 flex-wrap">
+                        {activeBoostList.map((b) => (
+                            <div
+                                key={b.id}
+                                className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium"
+                                title={`${b.label} ${formatRemaining(b.remainingMs)}`}
+                            >
+                                <span>{b.icon}</span>
+                                <span>{b.label}</span>
+                                <span className="font-mono">{formatRemaining(b.remainingMs)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
             </div>
         </div>
     );

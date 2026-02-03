@@ -10,6 +10,7 @@ import { gameData, transactions, keibaTransactions } from "@/lib/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import type { GameData, XpEventType, RankingEntry } from "@/types/game";
 import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/types/game";
+import { getBoosterDurationMs, getMoneyMultiplier, getXpFlatBonus, getXpMultiplier } from "@/lib/gameEffects";
 
 /**
  * ゲームデータを取得（なければ作成）
@@ -26,6 +27,7 @@ export async function getGameData(userId: string, tx?: any): Promise<GameData> {
     if (existing.length > 0) {
         const data = JSON.parse(existing[0].dataJson) as GameData;
         data.userId = userId; // Ensure userId is present
+        if (!data.activeBoosts) data.activeBoosts = {};
         return data;
     }
 
@@ -98,7 +100,11 @@ export async function earnXp(
     try {
         let data = await getGameData(userId);
         const baseXp = XP_REWARDS[eventType] || 0;
-        const xpGained = Math.floor(baseXp * multiplier);
+        const inventory = data.inventory || {};
+        const activeBoosts = data.activeBoosts || {};
+        const xpMultiplier = getXpMultiplier(inventory, activeBoosts);
+        const xpFlatBonus = getXpFlatBonus(inventory, activeBoosts);
+        const xpGained = Math.floor((baseXp + xpFlatBonus) * multiplier * xpMultiplier);
 
         // レベルアップチェック
         let levelUp = false;
@@ -122,6 +128,13 @@ export async function earnXp(
                 reward = levelReward.reward;
             } else if (levelReward) {
                 reward = levelReward.reward;
+            }
+
+            if (levelReward?.reward.items?.length) {
+                data.inventory = data.inventory || {};
+                for (const item of levelReward.reward.items) {
+                    data.inventory[item.itemId] = (data.inventory[item.itemId] || 0) + item.count;
+                }
             }
 
             data.level = nextLevel;
@@ -167,6 +180,14 @@ export async function transactMoney(
 
         const data = await getGameData(userId, tx);
 
+        const inventory = data.inventory || {};
+        const activeBoosts = data.activeBoosts || {};
+        const moneyMultiplier = getMoneyMultiplier(inventory, activeBoosts);
+        const boostableTypes = new Set(["LEVEL_UP", "DAILY_BONUS", "GACHA_ITEM", "PAYOUT", "GENERAL"]);
+        const adjustedAmount = (amount > 0 && moneyMultiplier !== 1 && boostableTypes.has(type))
+            ? Math.floor(amount * moneyMultiplier)
+            : amount;
+
         // 借金上限 (-10,000G) チェック
         const DEBT_LIMIT = -10000;
         if (amount < 0 && data.money + amount < DEBT_LIMIT) {
@@ -206,9 +227,9 @@ export async function transactMoney(
             data.todayLoanAmount = todayTotal;
         }
 
-        data.money += amount;
-        if (amount > 0) {
-            data.totalEarned += amount;
+        data.money += adjustedAmount;
+        if (adjustedAmount > 0) {
+            data.totalEarned += adjustedAmount;
         }
 
         await saveGameData(userId, data, tx);
@@ -220,7 +241,7 @@ export async function transactMoney(
             await queryBuilder.insert(transactions).values({
                 userId,
                 type,
-                amount: Math.floor(amount),
+                amount: Math.floor(adjustedAmount),
                 description,
                 balanceAfter: Math.floor(data.money),
             });
@@ -259,6 +280,44 @@ export async function purchaseItem(
         await saveGameData(userId, data);
 
         return { success: true };
+    } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+}
+
+
+/**
+ * ???????????????????
+ */
+export async function activateBooster(
+    userId: string,
+    boosterId: string
+): Promise<{ success: boolean; error?: string; activeBoosts?: Record<string, number>; inventory?: Record<string, number> }> {
+    try {
+        const data = await getGameData(userId);
+        const durationMs = getBoosterDurationMs(boosterId);
+        if (!durationMs) {
+            return { success: false, error: "??????????" };
+        }
+
+        const inventory = data.inventory || {};
+        const owned = inventory[boosterId] || 0;
+        if (owned <= 0) {
+            return { success: false, error: "???????????" };
+        }
+
+        const now = Date.now();
+        const expiresAt = now + durationMs;
+        const activeBoosts = { ...(data.activeBoosts || {}), [boosterId]: expiresAt };
+
+        inventory[boosterId] = owned - 1;
+
+        data.inventory = inventory;
+        data.activeBoosts = activeBoosts;
+
+        await saveGameData(userId, data);
+
+        return { success: true, activeBoosts, inventory };
     } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : String(e) };
     }

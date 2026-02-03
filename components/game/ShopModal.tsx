@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useGameStore, SHOP_ITEMS } from "@/stores/gameStore";
-import { purchaseItem } from "@/app/actions/game";
+import { activateBooster, purchaseItem } from "@/app/actions/game";
 import type { ShopItem } from "@/types/game";
 
 interface ShopModalProps {
@@ -14,6 +14,12 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
     const { data, canAfford, getOwnedCount, setData } = useGameStore();
     const [activeCategory, setActiveCategory] = useState<ShopItem["category"]>("theme");
     const [isPending, startTransition] = useTransition();
+    const [nowMs, setNowMs] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const categories = [
         { id: "theme" as const, name: "テーマ", icon: "🎨" },
@@ -25,6 +31,7 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
     const filteredItems = SHOP_ITEMS.filter(
         (item) => item.category === activeCategory
     );
+    const activeBoosts = data.activeBoosts || {};
 
     const handlePurchase = (item: ShopItem) => {
         if (!canAfford(item.price)) {
@@ -54,6 +61,38 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
                 alert("購入に失敗しました: " + result.error);
             }
         });
+    };
+
+    const handleActivate = (item: ShopItem) => {
+        if (!data.userId) {
+            alert("ユーザー情報が読み込まれていません");
+            return;
+        }
+        const owned = getOwnedCount(item.id);
+        if (owned <= 0) {
+            alert("ブースターがありません");
+            return;
+        }
+        startTransition(async () => {
+            const result = await activateBooster(data.userId, item.id);
+            if (result.success) {
+                setData({
+                    ...data,
+                    inventory: result.inventory || data.inventory,
+                    activeBoosts: result.activeBoosts || data.activeBoosts,
+                });
+                useGameStore.getState().markDirty();
+            } else {
+                alert("ブースターの使用に失敗しました: " + result.error);
+            }
+        });
+    };
+
+    const formatRemaining = (ms: number) => {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return `${min}:${String(sec).padStart(2, "0")}`;
     };
 
     return (
@@ -100,10 +139,14 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
                 {/* アイテムグリッド */}
                 <div className="p-6 overflow-y-auto max-h-[60vh]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filteredItems.map((item) => {
-                            const owned = getOwnedCount(item.id);
-                            const affordable = canAfford(item.price);
-                            const maxed = item.maxOwn ? owned >= item.maxOwn : false;
+                            {filteredItems.map((item) => {
+                                const owned = getOwnedCount(item.id);
+                                const affordable = canAfford(item.price);
+                                const maxed = item.maxOwn ? owned >= item.maxOwn : false;
+                                const isBooster = item.category === "booster";
+                                const expiresAt = activeBoosts[item.id];
+                                const remainingMs = expiresAt ? expiresAt - nowMs : 0;
+                                const isActive = isBooster && remainingMs > 0;
 
                             return (
                                 <div
@@ -129,6 +172,11 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
                                             <p className="text-xs text-white/60 mt-1">
                                                 {item.description}
                                             </p>
+                                            {isBooster && (
+                                                <p className="text-xs text-amber-300 mt-1">
+                                                    {isActive ? `有効中 残り ${formatRemaining(remainingMs)}` : "未使用"}
+                                                </p>
+                                            )}
                                             {owned > 0 && !maxed && (
                                                 <p className="text-xs text-white/40 mt-1">
                                                     所持: {owned}個
@@ -139,18 +187,32 @@ export function ShopModal({ userId, onClose }: ShopModalProps) {
                                             <p className="text-lg font-bold text-yellow-400">
                                                 💰 {item.price.toLocaleString()}
                                             </p>
-                                            <button
-                                                onClick={() => handlePurchase(item)}
-                                                disabled={!affordable || maxed || isPending}
-                                                className={`mt-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${maxed
+                                            <div className="mt-2 flex items-center justify-end gap-2">
+                                                {isBooster && (
+                                                    <button
+                                                        onClick={() => handleActivate(item)}
+                                                        disabled={owned <= 0 || isPending}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${owned > 0
+                                                            ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                                                            : "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                                                            }`}
+                                                    >
+                                                        {isActive ? "再使用" : "使用"}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handlePurchase(item)}
+                                                    disabled={!affordable || maxed || isPending}
+                                                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${maxed
                                                         ? "bg-green-500/30 text-green-400 cursor-not-allowed"
                                                         : affordable
                                                             ? "bg-pink-500 hover:bg-pink-600 text-white"
                                                             : "bg-gray-500/30 text-gray-400 cursor-not-allowed"
-                                                    }`}
-                                            >
-                                                {maxed ? "購入済" : isPending ? "..." : "購入"}
-                                            </button>
+                                                        }`}
+                                                >
+                                                    {maxed ? "購入済" : isPending ? "..." : "購入"}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

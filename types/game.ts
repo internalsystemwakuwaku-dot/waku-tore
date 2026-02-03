@@ -119,10 +119,10 @@ export const LEVEL_TABLE: Record<number, number> = {
 // レベル報酬
 export const LEVEL_REWARDS: LevelReward[] = [
     { level: 2, xpRequired: 100, reward: { money: 100 } },
-    { level: 5, xpRequired: 700, reward: { money: 500, unlock: "ショップ" } },
-    { level: 10, xpRequired: 3200, reward: { money: 1000, unlock: "競馬" } },
-    { level: 15, xpRequired: 9200, reward: { money: 2000, unlock: "ガチャ" } },
-    { level: 20, xpRequired: 20200, reward: { money: 5000, unlock: "特別テーマ" } },
+    { level: 5, xpRequired: 700, reward: { money: 500, items: [{ itemId: "booster_xp2", count: 1 }], unlock: "Shop" } },
+    { level: 10, xpRequired: 3200, reward: { money: 1000, items: [{ itemId: "booster_money", count: 1 }], unlock: "Keiba" } },
+    { level: 15, xpRequired: 9200, reward: { money: 2000, items: [{ itemId: "booster_gacha", count: 1 }], unlock: "Gacha" } },
+    { level: 20, xpRequired: 20200, reward: { money: 5000, items: [{ itemId: "booster_lucky", count: 1 }], unlock: "Advanced Theme" } },
 ];
 
 // デフォルトゲームデータ
@@ -133,6 +133,7 @@ export const DEFAULT_GAME_DATA: GameData = {
     money: 0,
     totalEarned: 0,
     inventory: {},
+    activeBoosts: {},
     settings: {
         bgmVolume: 0.5,
         seVolume: 0.7,

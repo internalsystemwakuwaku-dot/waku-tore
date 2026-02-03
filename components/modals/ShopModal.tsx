@@ -2,7 +2,8 @@
 
 import { useGameStore, SHOP_ITEMS } from "@/stores/gameStore";
 import { useSound } from "@/lib/sound/SoundContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { activateBooster } from "@/app/actions/game";
 import type { ShopItem } from "@/types/game";
 
 interface ShopModalProps {
@@ -19,6 +20,12 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
     const { data, purchaseItem, canAfford, getOwnedCount } = useGameStore();
     const { playSe, playBgm } = useSound();
     const [activeCategory, setActiveCategory] = useState<ShopItem["category"]>("facility");
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    useEffect(() => {
+        if (!isOpen) return;
+        const timer = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -33,6 +40,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
 
     // 表示するアイテム
     const displayedItems = SHOP_ITEMS.filter((item) => item.category === activeCategory);
+    const activeBoosts = data.activeBoosts || {};
 
     // 購入処理
     const handlePurchase = (item: ShopItem) => {
@@ -48,6 +56,37 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
         } else {
             playSe("coin");
         }
+    };
+
+    const formatRemaining = (ms: number) => {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return `${min}:${String(sec).padStart(2, "0")}`;
+    };
+
+    const handleActivate = async (item: ShopItem) => {
+        if (!data.userId) {
+            alert("ユーザー情報が読み込まれていません");
+            return;
+        }
+        const owned = getOwnedCount(item.id);
+        if (owned <= 0) {
+            alert("ブースターがありません");
+            return;
+        }
+        const result = await activateBooster(data.userId, item.id);
+        if (!result.success) {
+            alert(result.error || "ブースターの使用に失敗しました");
+            return;
+        }
+        useGameStore.getState().setData({
+            ...data,
+            inventory: result.inventory || data.inventory,
+            activeBoosts: result.activeBoosts || data.activeBoosts,
+        });
+        useGameStore.getState().markDirty();
+        playSe("decide");
     };
 
     return (
@@ -108,6 +147,10 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                 const count = getOwnedCount(item.id);
                                 const isMax = item.maxOwn && count >= item.maxOwn;
                                 const affordable = canAfford(item.price);
+                                const isBooster = item.category === "booster";
+                                const expiresAt = activeBoosts[item.id];
+                                const remainingMs = expiresAt ? expiresAt - nowMs : 0;
+                                const isActive = isBooster && remainingMs > 0;
 
                                 return (
                                     <div
@@ -139,6 +182,11 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                                     {item.description}
                                                     {item.effect && <span className="block text-amber-400 mt-0.5">効果: {item.effect}</span>}
                                                 </p>
+                                                {isBooster && (
+                                                    <div className="text-xs text-amber-300">
+                                                        {isActive ? `有効中 残り ${formatRemaining(remainingMs)}` : "未使用"}
+                                                    </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between mt-auto">
                                                     <div className="text-yellow-400 font-bold font-mono">
@@ -150,16 +198,30 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                                             購入済
                                                         </button>
                                                     ) : (
-                                                        <button
-                                                            onClick={() => handlePurchase(item)}
-                                                            disabled={!affordable}
-                                                            className={`px-4 py-1.5 rounded text-sm font-bold shadow-lg transition-transform active:scale-95 ${affordable
-                                                                ? "bg-amber-500 hover:bg-amber-400 text-black"
-                                                                : "bg-gray-700 text-gray-500 cursor-not-allowed"
-                                                                }`}
-                                                        >
-                                                            購入
-                                                        </button>
+                                                        <div className="flex items-center gap-2">
+                                                            {isBooster && (
+                                                                <button
+                                                                    onClick={() => handleActivate(item)}
+                                                                    disabled={count <= 0}
+                                                                    className={`px-3 py-1.5 rounded text-xs font-bold shadow-lg transition-transform active:scale-95 ${count > 0
+                                                                        ? "bg-emerald-500 hover:bg-emerald-400 text-black"
+                                                                        : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                                                        }`}
+                                                                >
+                                                                    {isActive ? "再使用" : "使用"}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handlePurchase(item)}
+                                                                disabled={!affordable}
+                                                                className={`px-4 py-1.5 rounded text-sm font-bold shadow-lg transition-transform active:scale-95 ${affordable
+                                                                    ? "bg-amber-500 hover:bg-amber-400 text-black"
+                                                                    : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                                                    }`}
+                                                            >
+                                                                購入
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

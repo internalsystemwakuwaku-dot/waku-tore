@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { GameData, RankingEntry, ShopItem } from "@/types/game";
 import { DEFAULT_GAME_DATA } from "@/types/game";
+import { getXpMultiplier, getXpFlatBonus } from "@/lib/gameEffects";
+import { toast } from "@/components/ui/Toast";
 
 // ショップアイテム定義
 export const SHOP_ITEMS: ShopItem[] = [
@@ -51,7 +53,7 @@ export const SHOP_ITEMS: ShopItem[] = [
         id: "booster_xp2",
         name: "XP2倍ブースター",
         description: "1時間XP獲得量2倍",
-        price: 400,
+        price: 1500,
         category: "booster",
         icon: "⚡",
     },
@@ -59,7 +61,7 @@ export const SHOP_ITEMS: ShopItem[] = [
         id: "booster_lucky",
         name: "ラッキーチケット",
         description: "次回ガチャで高レア確率UP",
-        price: 600,
+        price: 2300,
         category: "booster",
         icon: "🍀",
     },
@@ -72,7 +74,212 @@ export const SHOP_ITEMS: ShopItem[] = [
         icon: "👑",
         maxOwn: 1,
     },
-    // --- 生産施設 ---
+    
+    {
+        id: "theme_cafe",
+        name: "???????",
+        description: "????????????????",
+        price: 600,
+        category: "theme",
+        icon: "?",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_spring_fes",
+        name: "???",
+        description: "?????????????",
+        price: 900,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_library",
+        name: "???",
+        description: "?????????????",
+        price: 700,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_ocean",
+        name: "???????",
+        description: "??????????????",
+        price: 1000,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_carnival",
+        name: "????????",
+        description: "????????????????",
+        price: 1200,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_tea",
+        name: "???",
+        description: "???????????????",
+        price: 650,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_forest",
+        name: "????",
+        description: "??????????????",
+        price: 800,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_nightmarket",
+        name: "??",
+        description: "??????????????",
+        price: 1300,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "theme_cloud",
+        name: "???",
+        description: "???????????????",
+        price: 750,
+        category: "theme",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "deco_lantern",
+        name: "??",
+        description: "??????????",
+        price: 200,
+        category: "decoration",
+        icon: "??",
+    },
+    {
+        id: "deco_bubbles",
+        name: "???",
+        description: "????????",
+        price: 250,
+        category: "decoration",
+        icon: "??",
+    },
+    {
+        id: "deco_ribbons",
+        name: "????",
+        description: "???????????",
+        price: 220,
+        category: "decoration",
+        icon: "??",
+    },
+    {
+        id: "deco_spark",
+        name: "????",
+        description: "?????????",
+        price: 260,
+        category: "decoration",
+        icon: "?",
+    },
+    {
+        id: "deco_paper",
+        name: "???",
+        description: "?????????",
+        price: 180,
+        category: "decoration",
+        icon: "??",
+    },
+    {
+        id: "deco_confetti",
+        name: "???",
+        description: "?????????",
+        price: 280,
+        category: "decoration",
+        icon: "??",
+    },
+    {
+        id: "booster_xp3",
+        name: "XP3??????",
+        description: "30?????XP?3?",
+        price: 2500,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "booster_money",
+        name: "??1.5?",
+        description: "30????????1.5?",
+        price: 2200,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "booster_combo",
+        name: "????????",
+        description: "?????XP+5",
+        price: 1200,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "booster_focus",
+        name: "??????",
+        description: "?????XP+3",
+        price: 1000,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "booster_gacha",
+        name: "?????",
+        description: "????????-20%?30??",
+        price: 1800,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "booster_lucky2",
+        name: "??????",
+        description: "??????????",
+        price: 3000,
+        category: "booster",
+        icon: "??",
+    },
+    {
+        id: "special_title_master",
+        name: "??????????",
+        description: "??????????????",
+        price: 2000,
+        category: "special",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "special_ui_gold",
+        name: "??UI",
+        description: "UI????????",
+        price: 2500,
+        category: "special",
+        icon: "??",
+        maxOwn: 1,
+    },
+    {
+        id: "special_pet",
+        name: "?????????",
+        description: "???????????????",
+        price: 3000,
+        category: "special",
+        icon: "??",
+        maxOwn: 1,
+    },
+// --- 生産施設 ---
     {
         id: "facility_cursor",
         name: "強化カーソル",
@@ -118,6 +325,143 @@ export const SHOP_ITEMS: ShopItem[] = [
         icon: "🏭",
         effect: "auto_xp_50",
     },
+
+    {
+        id: "facility_lantern",
+        name: "????",
+        description: "1????0.2XP??????",
+        price: 150,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_0.2",
+    },
+    {
+        id: "facility_streetmusician",
+        name: "?????",
+        description: "1????0.5XP??????",
+        price: 300,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_0.5",
+    },
+    {
+        id: "facility_bakery",
+        name: "?????????",
+        description: "1????2XP??????",
+        price: 900,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_2",
+    },
+    {
+        id: "facility_flowerstall",
+        name: "?????",
+        description: "1????3XP??????",
+        price: 1400,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_3",
+    },
+    {
+        id: "facility_fountain",
+        name: "??????",
+        description: "1????8XP??????",
+        price: 3500,
+        category: "facility",
+        icon: "?",
+        effect: "auto_xp_8",
+    },
+    {
+        id: "facility_teahouse",
+        name: "???",
+        description: "1????12XP??????",
+        price: 5000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_12",
+    },
+    {
+        id: "facility_cafe",
+        name: "???????",
+        description: "1????20XP??????",
+        price: 8000,
+        category: "facility",
+        icon: "?",
+        effect: "auto_xp_20",
+    },
+    {
+        id: "facility_yatai",
+        name: "????",
+        description: "1????30XP??????",
+        price: 12000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_30",
+    },
+    {
+        id: "facility_fireworks",
+        name: "????",
+        description: "1????40XP??????",
+        price: 18000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_40",
+    },
+    {
+        id: "facility_carousel",
+        name: "????????",
+        description: "1????60XP??????",
+        price: 26000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_60",
+    },
+    {
+        id: "facility_festival_plaza",
+        name: "?????",
+        description: "1????80XP??????",
+        price: 36000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_80",
+    },
+    {
+        id: "facility_parade",
+        name: "??????",
+        description: "1????100XP??????",
+        price: 48000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_100",
+    },
+    {
+        id: "facility_castle",
+        name: "?????",
+        description: "1????120XP??????",
+        price: 65000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_120",
+    },
+    {
+        id: "facility_skygarden",
+        name: "????",
+        description: "1????150XP??????",
+        price: 85000,
+        category: "facility",
+        icon: "???",
+        effect: "auto_xp_150",
+    },
+    {
+        id: "facility_waku_dome",
+        name: "???????",
+        description: "1????200XP??????",
+        price: 110000,
+        category: "facility",
+        icon: "??",
+        effect: "auto_xp_200",
+    },
+
 ];
 
 interface GameState {
@@ -226,7 +570,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     // XP追加（レベルアップチェック付き）
     addXP: (amount) => {
         const { data } = get();
-        const newXp = data.xp + amount;
+        const inventory = data.inventory || {};
+        const activeBoosts = data.activeBoosts || {};
+        const now = Date.now();
+        const prunedBoosts: Record<string, number> = {};
+        const expiredBoosts: string[] = [];
+        let boostsChanged = false;
+        for (const [id, expiresAt] of Object.entries(activeBoosts)) {
+            if (expiresAt > now) {
+                prunedBoosts[id] = expiresAt;
+            } else {
+                boostsChanged = true;
+                if (expiresAt > now - 2000) {
+                    expiredBoosts.push(id);
+                }
+            }
+        }
+        if (boostsChanged) {
+            set((state) => ({
+                data: { ...state.data, activeBoosts: prunedBoosts },
+                isDirty: true,
+            }));
+            for (const id of expiredBoosts) {
+                const label = SHOP_ITEMS.find((i) => i.id === id)?.name || id;
+                toast.info(`${label} ?????????`);
+            }
+        }
+        const xpMultiplier = getXpMultiplier(inventory, prunedBoosts);
+        const xpFlatBonus = getXpFlatBonus(inventory, activeBoosts);
+        const totalAdd = Math.max(0, Math.floor((amount + xpFlatBonus) * xpMultiplier));
+        const newXp = data.xp + totalAdd;
 
         // レベルアップ判定
         const newLevel = calculateLevel(newXp);
@@ -292,7 +665,34 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // 定期実行 (オートクリッカー等)
     tick: () => {
-        const { data, addXP } = get();
+        const { data } = get();
+        const inventory = data.inventory || {};
+        const activeBoosts = data.activeBoosts || {};
+        const now = Date.now();
+        const prunedBoosts: Record<string, number> = {};
+        const expiredBoosts: string[] = [];
+        let boostsChanged = false;
+        for (const [id, expiresAt] of Object.entries(activeBoosts)) {
+            if (expiresAt > now) {
+                prunedBoosts[id] = expiresAt;
+            } else {
+                boostsChanged = true;
+                if (expiresAt > now - 2000) {
+                    expiredBoosts.push(id);
+                }
+            }
+        }
+        if (boostsChanged) {
+            set((state) => ({
+                data: { ...state.data, activeBoosts: prunedBoosts },
+                isDirty: true,
+            }));
+            for (const id of expiredBoosts) {
+                const label = SHOP_ITEMS.find((i) => i.id === id)?.name || id;
+                toast.info(`${label} ?????????`);
+            }
+        }
+        const xpMultiplier = getXpMultiplier(inventory, prunedBoosts);
         let autoXp = 0;
 
         SHOP_ITEMS.forEach((item) => {
@@ -306,6 +706,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
 
         if (autoXp > 0) {
+            autoXp *= xpMultiplier;
             // 小数点は確率で処理するか、内部で保持するか。今回は確率で処理
             // 例: 0.1XP -> 10%の確率で1XP
             const intXp = Math.floor(autoXp);

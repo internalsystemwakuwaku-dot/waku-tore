@@ -135,6 +135,13 @@ export const DEFAULT_GACHA_POOL: GachaPool = {
         { id: "sr_coin_xl", name: "コイン特大", rarity: "SR", description: "500コイン獲得", icon: "🪙", dropRate: 8 },
         { id: "sr_xp_l", name: "XP大", rarity: "SR", description: "300XP獲得", icon: "⭐", dropRate: 5 },
         { id: "sr_theme", name: "限定テーマ", rarity: "SR", description: "特別テーマを獲得", icon: "🎨", dropRate: 2 },
+
+        { id: "booster_xp2", name: "XP2??????", rarity: "R", description: "30?XP2?", icon: "??", dropRate: 4 },
+        { id: "booster_money", name: "??1.5?", rarity: "R", description: "20???1.5?", icon: "??", dropRate: 3 },
+        { id: "booster_gacha", name: "?????", rarity: "SR", description: "10??????", icon: "??", dropRate: 2 },
+        { id: "booster_lucky", name: "??????", rarity: "SR", description: "10???????", icon: "??", dropRate: 1.5 },
+        { id: "booster_xp3", name: "XP3??????", rarity: "SSR", description: "30?XP3?", icon: "??", dropRate: 0.8 },
+        { id: "booster_lucky2", name: "??????+", rarity: "SSR", description: "10??????????", icon: "??", dropRate: 0.5 },
         { id: "ssr_jackpot", name: "ジャックポット", rarity: "SSR", description: "1000コイン獲得", icon: "💰", dropRate: 3 },
         { id: "ssr_mega_xp", name: "メガXP", rarity: "SSR", description: "1000XP獲得", icon: "✨", dropRate: 1.5 },
         { id: "ur_golden", name: "ゴールデン", rarity: "UR", description: "3000コイン獲得", icon: "🏆", dropRate: 0.5 },

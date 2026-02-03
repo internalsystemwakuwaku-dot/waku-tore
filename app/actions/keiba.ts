@@ -22,7 +22,8 @@ import type {
     BetMode,
 } from "@/types/keiba";
 import { DEFAULT_HORSES, DEFAULT_GACHA_POOL } from "@/types/keiba";
-import { transactMoney, earnXp } from "./game";
+import { getGachaDiscountRate, getGachaRerolls, pickBetterGachaItem } from "@/lib/gameEffects";
+import { transactMoney, earnXp, getGameData } from "./game";
 
 const RACE_SCHEDULE = [
     { h: 9, m: 55 }, { h: 10, m: 55 }, { h: 11, m: 55 }, { h: 12, m: 30 },
@@ -588,7 +589,11 @@ export async function pullGacha(
     count: number = 1
 ): Promise<{ success: boolean; results?: GachaResult[]; error?: string }> {
     const pool = DEFAULT_GACHA_POOL;
-    const totalCost = pool.cost * count;
+    const data = await getGameData(userId);
+    const inventory = data.inventory || {};
+    const activeBoosts = data.activeBoosts || {};
+    const discountRate = getGachaDiscountRate(inventory, activeBoosts);
+    const totalCost = Math.floor(pool.cost * count * discountRate);
 
     const deductResult = await transactMoney(userId, -totalCost, "ガチャ", "GACHA");
     if (!deductResult.success) {
@@ -599,7 +604,12 @@ export async function pullGacha(
 
     try {
         for (let i = 0; i < count; i++) {
-            const item = selectGachaItem(pool.items);
+            let item = selectGachaItem(pool.items);
+            const rerolls = getGachaRerolls(inventory, activeBoosts);
+            for (let r = 0; r < rerolls; r++) {
+                const candidate = selectGachaItem(pool.items);
+                item = pickBetterGachaItem(item, candidate);
+            }
 
             const existing = await db
                 .select()

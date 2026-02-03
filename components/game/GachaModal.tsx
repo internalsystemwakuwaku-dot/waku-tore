@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { pullGacha } from "@/app/actions/keiba";
 import { useGameStore } from "@/stores/gameStore";
 import { DEFAULT_GACHA_POOL, RARITY_CONFIG } from "@/types/keiba";
+import { getGachaDiscountRate, isBoostActive } from "@/lib/gameEffects";
 import type { GachaResult } from "@/types/keiba";
 
 interface GachaModalProps {
@@ -20,12 +21,36 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
     const [showResult, setShowResult] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [nowMs, setNowMs] = useState(() => Date.now());
 
     const pool = DEFAULT_GACHA_POOL;
 
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+    const activeBoosts = data.activeBoosts || {};
+    const discountRate = getGachaDiscountRate(data.inventory || {}, activeBoosts);
+    const activeGachaBoosts = [
+        { id: "booster_gacha", label: "Gacha Discount", icon: "G" },
+        { id: "booster_lucky", label: "Lucky", icon: "L" },
+        { id: "booster_lucky2", label: "Lucky+", icon: "L+" },
+    ].map((b) => {
+        const expiresAt = activeBoosts[b.id];
+        const remainingMs = typeof expiresAt === "number" ? Math.max(0, expiresAt - nowMs) : 0;
+        return { ...b, remainingMs, active: isBoostActive(activeBoosts, b.id, nowMs) };
+    }).filter((b) => b.active);
+
+    const formatRemaining = (ms: number) => {
+        const totalSec = Math.max(0, Math.floor(ms / 1000));
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return `${min}:${String(sec).padStart(2, "0")}`;
+    };
+
     // ガチャを回す
     const handlePull = (count: number) => {
-        const cost = pool.cost * count;
+        const cost = Math.floor(pool.cost * count * discountRate);
         if (data.money < cost) {
             alert("所持金が不足しています");
             return;
@@ -161,6 +186,20 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
                                 <div className="text-6xl mb-2">{pool.banner}</div>
                                 <p className="text-white/60 text-sm">{pool.description}</p>
                             </div>
+                            {activeGachaBoosts.length > 0 && (
+                                <div className="mb-6 rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+                                    <div className="text-xs text-white/60 mb-2">????????</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {activeGachaBoosts.map((b) => (
+                                            <div key={b.id} className="flex items-center gap-1 text-xs bg-amber-500/20 text-amber-200 border border-amber-500/30 rounded-full px-2 py-1">
+                                                <span>{b.icon}</span>
+                                                <span>{b.label}</span>
+                                                <span className="font-mono">{formatRemaining(b.remainingMs)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* レートテーブル */}
                             <div className="bg-white/5 rounded-xl p-4 mb-6">
@@ -186,7 +225,7 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
                             <div className="grid grid-cols-2 gap-4">
                                 <button
                                     onClick={() => handlePull(1)}
-                                    disabled={isPending || data.money < pool.cost}
+                                    disabled={isPending || data.money < Math.floor(pool.cost * discountRate)}
                                     className="py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-bold transition-all disabled:opacity-50"
                                 >
                                     <span className="text-2xl block">🎰</span>
@@ -197,7 +236,7 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
                                 </button>
                                 <button
                                     onClick={() => handlePull(10)}
-                                    disabled={isPending || data.money < pool.cost * 10}
+                                    disabled={isPending || data.money < Math.floor(pool.cost * 10 * discountRate)}
                                     className="py-4 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-xl font-bold transition-all disabled:opacity-50"
                                 >
                                     <span className="text-2xl block">🎰✨</span>
