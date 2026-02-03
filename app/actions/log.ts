@@ -7,9 +7,17 @@ import { desc, eq, sql } from "drizzle-orm";
 /**
  * ユーザー行動をログに記録
  */
-export async function logActivity(userId: string, action: string, cardId?: string | null) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function logActivity(userId: string, action: string, cardId?: string | null, tx?: any) {
     try {
-        await db.run(sql`
+        const queryBuilder = tx || db;
+        // Drizzleのtransaction object (tx) と db client はAPIが少し違う場合があるが、
+        // run/execute は共通して使えることが多い。
+        // ただし、drizzle-orm/sqlite-core の場合、tx.run() がある。
+        // 安全のため、raw SQLではなくdrizzle-ormのクエリビルダーを使う方が良いが、
+        // ここでは既存のsql``を活かすため、実行メソッドを統一する。
+
+        await queryBuilder.run(sql`
             INSERT INTO "activity_logs" (user_id, action, card_id)
             VALUES (${userId}, ${action}, ${cardId || null})
         `);

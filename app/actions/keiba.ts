@@ -252,7 +252,7 @@ export async function placeBet(
                 });
             }
 
-            await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`);
+            await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`, null, tx);
 
             // 成功
             return { success: true, newBalance: txResult.newBalance };
@@ -325,13 +325,13 @@ export async function cancelBet(
                 throw new Error("返金処理に失敗しました");
             }
 
-            await logActivity(userId, `競馬キャンセル: ${race.name} (返金 ${refundAmount}G)`);
+            await logActivity(userId, `競馬キャンセル: ${race.name} (返金 ${refundAmount}G)`, null, tx);
 
             return { success: true, newBalance: txResult.newBalance };
         });
     } catch (e) {
         console.error("[cancelBet] Error:", e);
-        return { success: false, error: "キャンセル処理中にエラーが発生しました" };
+        return { success: false, error: e instanceof Error ? e.message : "キャンセル処理中にエラーが発生しました" };
     }
 }
 
@@ -414,12 +414,15 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
 
         // 賭け目の詳細をパース
         let betHorses: number[] = [];
-        let betOdds = 1.0;
+        let betOdds: number | null = null; // nullはdetailsにオッズがない場合
         if (bet.details) {
             try {
                 const details = JSON.parse(bet.details);
                 betHorses = details.horses || [];
-                betOdds = details.odds || 1.0;
+                // details.odds が明示的に設定されている場合のみ使用
+                if (typeof details.odds === 'number' && details.odds > 0) {
+                    betOdds = details.odds;
+                }
             } catch { }
         }
         if (bet.horseId && betHorses.length === 0) {
@@ -433,7 +436,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
             if (betHorses[0] === r1) {
                 isWin = true;
                 const horse = horses.find(h => h.id === r1);
-                payout = Math.floor(bet.betAmount * (betOdds > 1 ? betOdds : horse?.odds || 2.0));
+                // betOdds が設定されていればそれを使用、なければ馬のオッズを使用
+                const effectiveOdds = betOdds !== null ? betOdds : (horse?.odds || 2.0);
+                payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
         // PLACE (複勝)
@@ -441,8 +446,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
             if (betHorses[0] && top3Set.has(betHorses[0])) {
                 isWin = true;
                 const horse = horses.find(h => h.id === betHorses[0]);
-                const odds = betOdds > 1 ? betOdds : (horse ? Math.max(1.0, horse.odds / 3) : 1.3);
-                payout = Math.floor(bet.betAmount * odds);
+                // betOdds が設定されていればそれを使用、なければ馬のオッズから計算
+                const effectiveOdds = betOdds !== null ? betOdds : Math.max(1.0, (horse?.odds || 3.0) / 3);
+                payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
         // UMAREN (馬連)
@@ -452,7 +458,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 const h2 = betHorses[1];
                 if ((h1 === r1 && h2 === r2) || (h1 === r2 && h2 === r1)) {
                     isWin = true;
-                    payout = Math.floor(bet.betAmount * betOdds);
+                    // 馬連のデフォルトオッズは5.0倍
+                    const effectiveOdds = betOdds !== null ? betOdds : 5.0;
+                    payout = Math.floor(bet.betAmount * effectiveOdds);
                 }
             }
         }
@@ -460,7 +468,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
         else if (betType === "UMATAN") {
             if (betHorses.length >= 2 && betHorses[0] === r1 && betHorses[1] === r2) {
                 isWin = true;
-                payout = Math.floor(bet.betAmount * betOdds);
+                // 馬単のデフォルトオッズは10.0倍
+                const effectiveOdds = betOdds !== null ? betOdds : 10.0;
+                payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
         // SANRENPUKU (3連複)
@@ -469,7 +479,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 const betSet = new Set(betHorses.slice(0, 3));
                 if (betSet.has(r1) && betSet.has(r2) && betSet.has(r3)) {
                     isWin = true;
-                    payout = Math.floor(bet.betAmount * betOdds);
+                    // 3連複のデフォルトオッズは15.0倍
+                    const effectiveOdds = betOdds !== null ? betOdds : 15.0;
+                    payout = Math.floor(bet.betAmount * effectiveOdds);
                 }
             }
         }
@@ -478,7 +490,9 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
             if (betHorses.length >= 3 &&
                 betHorses[0] === r1 && betHorses[1] === r2 && betHorses[2] === r3) {
                 isWin = true;
-                payout = Math.floor(bet.betAmount * betOdds);
+                // 3連単のデフォルトオッズは50.0倍
+                const effectiveOdds = betOdds !== null ? betOdds : 50.0;
+                payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
 
@@ -739,21 +753,33 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
 /**
  * 本日のレース結果一覧を取得 (M-20)
  * 完了済みのレースと着順、配当を返す
+ * JSTタイムゾーンを考慮して本日の範囲を計算
  */
 export async function getTodayRaceResults(): Promise<{ race: Race; results: string[]; ranking: number[] }[]> {
     try {
+        // JSTで現在時刻を取得
         const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+        const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
+        const nowJst = new Date(nowJstStr);
 
+        // JSTの本日0:00と23:59:59を計算
+        const y = nowJst.getFullYear();
+        const m = String(nowJst.getMonth() + 1).padStart(2, "0");
+        const d = String(nowJst.getDate()).padStart(2, "0");
+
+        // ISO形式でJSTオフセット付きの範囲を作成
+        const startOfDay = `${y}-${m}-${d}T00:00:00+09:00`;
+        const endOfDay = `${y}-${m}-${d}T23:59:59+09:00`;
+
+        // scheduledAtはJSTオフセット付きで保存されているので、ISO文字列として比較可能
         const races = await db
             .select()
             .from(keibaRaces)
             .where(
                 and(
                     eq(keibaRaces.status, "finished"),
-                    gt(keibaRaces.scheduledAt, startOfDay),
-                    lt(keibaRaces.scheduledAt, endOfDay)
+                    gt(keibaRaces.scheduledAt, new Date(startOfDay).toISOString()),
+                    lt(keibaRaces.scheduledAt, new Date(endOfDay).toISOString())
                 )
             )
             .orderBy(desc(keibaRaces.scheduledAt));

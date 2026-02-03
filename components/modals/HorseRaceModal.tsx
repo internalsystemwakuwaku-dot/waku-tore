@@ -88,8 +88,19 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const handleClose = () => {
         if (phase === "racing") return;
         onClose();
+        // 状態を完全にリセット
         setPhase("loading");
         setSelectedHorseId(null);
+        setMyBets([]);
+        setPositions([0, 0, 0, 0, 0, 0]);
+        setTab("bet");
+        setBetAmount(100);
+        setBetType("WIN");
+        // raceTimerをクリア
+        if (raceTimerRef.current) {
+            clearInterval(raceTimerRef.current);
+            raceTimerRef.current = null;
+        }
     };
 
 
@@ -142,21 +153,37 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     // Poll logic
     useEffect(() => {
         let pollTimer: NodeJS.Timeout;
+        let isPolling = false; // 重複ポーリング防止フラグ
 
         if (phase === "racing") {
             playBgm("race");
             // If we just entered racing phase, start polling for result
             pollTimer = setInterval(async () => {
-                const { race: latestRace, myBets: latestBets } = await getActiveRace(gameUser.userId);
-                if (latestRace.status === "finished" && latestRace.winnerId) {
-                    clearInterval(pollTimer);
-                    setRace(latestRace);
-                    setMyBets(latestBets);
-                    startRiggedAnimation(latestRace.winnerId, latestRace.horses); // Pass horses explicitly
+                // 既にポーリング中なら次のポーリングをスキップ
+                if (isPolling) return;
+                isPolling = true;
 
-                    // Payout refresh
-                    const updatedUser = await getGameData(gameUser.userId);
-                    setData(updatedUser);
+                try {
+                    const { race: latestRace, myBets: latestBets } = await getActiveRace(gameUser.userId);
+                    if (latestRace.status === "finished" && latestRace.winnerId) {
+                        clearInterval(pollTimer);
+                        setRace(latestRace);
+                        setMyBets(latestBets);
+                        startRiggedAnimation(latestRace.winnerId, latestRace.horses); // Pass horses explicitly
+
+                        // Payout refresh
+                        try {
+                            const updatedUser = await getGameData(gameUser.userId);
+                            setData(updatedUser);
+                        } catch (e) {
+                            console.error("[HorseRaceModal] Failed to refresh user data:", e);
+                        }
+                    }
+                } catch (e) {
+                    console.error("[HorseRaceModal] Polling error:", e);
+                    // エラーが発生してもポーリングを継続（一時的なネットワークエラー対策）
+                } finally {
+                    isPolling = false;
                 }
             }, 3000);
         } else if (phase === "result") {
@@ -174,16 +201,29 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     // Place Bet
     const handleBet = async () => {
-        if (!race || !selectedHorseId) return;
+        if (!race || !selectedHorseId || isLoading) return;
 
         setIsLoading(true);
         playSe("decide");
 
         try {
+            // 選択された馬のオッズを取得
+            const selectedHorse = horses.find(h => h.id === selectedHorseId);
+            const currentOdds = betType === "WIN"
+                ? (selectedHorse?.odds || 2.0)
+                : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
+
+            // ベット時のオッズをdetailsに含める
+            const betDetails = JSON.stringify({
+                horses: [selectedHorseId],
+                odds: currentOdds
+            });
+
             const result = await placeBet(gameUser.userId, race.id, [{
                 type: betType,
                 mode: "NORMAL",
                 horseId: selectedHorseId,
+                details: betDetails,
                 amount: betAmount
             }]);
 
@@ -210,6 +250,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     // Cancel Bet
     const handleCancelBet = async (betId: string) => {
+        if (isLoading) return; // 連打防止
         if (!confirm("この投票を取り消しますか？\n（返金されます）")) return;
 
         setIsLoading(true);
@@ -353,7 +394,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <div className="text-right px-4">
                                                         <div className="text-xs text-gray-500">ODDS</div>
                                                         <div className="text-2xl font-mono font-bold text-yellow-400">
-                                                            {betType === "WIN" ? horse.odds.toFixed(1) : (horse.odds / 3).toFixed(1)}
+                                                            {betType === "WIN"
+                                                                ? horse.odds.toFixed(1)
+                                                                : Math.max(1.0, horse.odds / 3).toFixed(1)}
                                                         </div>
                                                     </div>
 
@@ -409,7 +452,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <div className="flex justify-between text-sm mb-2">
                                                         <span className="text-gray-400">予想払戻金</span>
                                                         <span className="text-yellow-400 font-bold">
-                                                            {Math.floor(betAmount * (betType === "WIN" ? (horses.find(h => h.id === selectedHorseId)?.odds || 1) : (horses.find(h => h.id === selectedHorseId)?.odds || 3) / 3)).toLocaleString()} G
+                                                            {(() => {
+                                                                const selectedHorse = horses.find(h => h.id === selectedHorseId);
+                                                                const odds = betType === "WIN"
+                                                                    ? (selectedHorse?.odds || 2.0)
+                                                                    : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
+                                                                return Math.floor(betAmount * odds).toLocaleString();
+                                                            })()} G
                                                         </span>
                                                     </div>
                                                     <button
