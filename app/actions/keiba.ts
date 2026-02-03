@@ -693,7 +693,23 @@ export async function getTodayRaceResults(): Promise<{
             .where(and(eq(keibaRaces.status, "finished"), like(keibaRaces.id, todayPrefix)))
             .orderBy(desc(keibaRaces.scheduledAt));
 
-        const results = [];
+        const output: {
+            race: Race;
+            results: string[];
+            ranking: number[];
+            bets: {
+                userId: string;
+                totalBet: number;
+                totalPayout: number;
+                items: {
+                    type: string;
+                    horseId?: number;
+                    amount: number;
+                    payout: number;
+                    isWin: boolean;
+                }[];
+            }[];
+        }[] = [];
         for (const r of races) {
             let results: string[] = [];
             let resultIds: number[] = [];
@@ -747,7 +763,7 @@ export async function getTodayRaceResults(): Promise<{
                 betsByUser.set(b.userId, entry);
             }
 
-            results.push({
+            output.push({
                 race: {
                     id: r.id,
                     name: r.name,
@@ -763,7 +779,7 @@ export async function getTodayRaceResults(): Promise<{
             });
         }
 
-        return results;
+        return output;
     } catch {
         return [];
     }
