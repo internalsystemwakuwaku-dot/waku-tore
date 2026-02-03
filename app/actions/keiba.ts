@@ -660,7 +660,23 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
     }
 }
 
-export async function getTodayRaceResults(): Promise<{ race: Race; results: string[]; ranking: number[] }[]> {
+export async function getTodayRaceResults(): Promise<{
+    race: Race;
+    results: string[];
+    ranking: number[];
+    bets: {
+        userId: string;
+        totalBet: number;
+        totalPayout: number;
+        items: {
+            type: string;
+            horseId?: number;
+            amount: number;
+            payout: number;
+            isWin: boolean;
+        }[];
+    }[];
+}[]> {
     try {
         const now = new Date();
         const jstOffset = 9 * 60 * 60 * 1000;
@@ -677,7 +693,8 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
             .where(and(eq(keibaRaces.status, "finished"), like(keibaRaces.id, todayPrefix)))
             .orderBy(desc(keibaRaces.scheduledAt));
 
-        return races.map(r => {
+        const results = [];
+        for (const r of races) {
             let results: string[] = [];
             let resultIds: number[] = [];
             try {
@@ -691,7 +708,46 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
                 results = ["結果の取得に失敗しました"];
             }
 
-            return {
+            const betRows = await db
+                .select()
+                .from(keibaTransactions)
+                .where(eq(keibaTransactions.raceId, r.id));
+
+            const betsByUser = new Map<string, {
+                userId: string;
+                totalBet: number;
+                totalPayout: number;
+                items: {
+                    type: string;
+                    horseId?: number;
+                    amount: number;
+                    payout: number;
+                    isWin: boolean;
+                }[];
+            }>();
+
+            for (const b of betRows) {
+                const entry = betsByUser.get(b.userId) || {
+                    userId: b.userId,
+                    totalBet: 0,
+                    totalPayout: 0,
+                    items: [],
+                };
+
+                entry.totalBet += b.betAmount;
+                entry.totalPayout += b.payout;
+                entry.items.push({
+                    type: b.type || "WIN",
+                    horseId: b.horseId || undefined,
+                    amount: b.betAmount,
+                    payout: b.payout,
+                    isWin: b.isWin ?? false,
+                });
+
+                betsByUser.set(b.userId, entry);
+            }
+
+            results.push({
                 race: {
                     id: r.id,
                     name: r.name,
@@ -703,8 +759,11 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
                 },
                 results,
                 ranking: resultIds,
-            };
-        });
+                bets: Array.from(betsByUser.values()),
+            });
+        }
+
+        return results;
     } catch {
         return [];
     }

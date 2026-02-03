@@ -11,6 +11,12 @@ interface RaceResult {
     ranking: number[];
     horses: Horse[];
     startedAt: string;
+    bets: {
+        userId: string;
+        totalBet: number;
+        totalPayout: number;
+        items: { type: string; horseId?: number; amount: number; payout: number; isWin: boolean }[];
+    }[];
 }
 
 interface RaceResultsPanelProps {
@@ -26,16 +32,21 @@ export function RaceResultsPanel({ isOpen, onClose }: RaceResultsPanelProps) {
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
-        if (isOpen) {
+        if (!isOpen) return;
+        const fetchResults = () => {
             startTransition(async () => {
                 const result = await getTodayRaceResults();
                 setRaces(result.map(item => ({
                     ...item.race,
                     ranking: item.ranking,
-                    startedAt: item.race.startedAt || ""
+                    startedAt: item.race.startedAt || "",
+                    bets: item.bets || [],
                 })));
             });
-        }
+        };
+        fetchResults();
+        const interval = setInterval(fetchResults, 5000);
+        return () => clearInterval(interval);
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -100,6 +111,32 @@ export function RaceResultsPanel({ isOpen, onClose }: RaceResultsPanelProps) {
                                                     </div>
                                                 );
                                             })}
+                                        </div>
+                                        <div className="mt-3 text-xs text-gray-500">配当と購入一覧</div>
+                                        <div className="mt-2 space-y-2">
+                                            {race.bets.length === 0 ? (
+                                                <div className="text-gray-400 text-xs">購入者なし</div>
+                                            ) : (
+                                                race.bets.map((b) => (
+                                                    <div key={b.userId} className="bg-gray-50 border border-gray-200 rounded p-2 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span>User: {b.userId}</span>
+                                                            <span className="text-orange-600">払戻 {b.totalPayout.toLocaleString()}G</span>
+                                                        </div>
+                                                        <div className="text-gray-500">
+                                                            投票合計 {b.totalBet.toLocaleString()}G
+                                                        </div>
+                                                        <div className="mt-1 space-y-1">
+                                                            {b.items.map((it, idx) => (
+                                                                <div key={idx} className="flex justify-between">
+                                                                    <span>{it.type} #{it.horseId ?? "-"}</span>
+                                                                    <span>{it.amount.toLocaleString()}G / {it.payout.toLocaleString()}G</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     </div>
                                 </div>

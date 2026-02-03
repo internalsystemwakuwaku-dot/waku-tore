@@ -26,7 +26,17 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
     const [tab, setTab] = useState<"bet" | "result">("bet");
-    const [todayResults, setTodayResults] = useState<{ race: Race; results: string[]; ranking?: number[] }[]>([]);
+    const [todayResults, setTodayResults] = useState<{
+        race: Race;
+        results: string[];
+        ranking?: number[];
+        bets: {
+            userId: string;
+            totalBet: number;
+            totalPayout: number;
+            items: { type: string; horseId?: number; amount: number; payout: number; isWin: boolean }[];
+        }[];
+    }[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
     const [resultsError, setResultsError] = useState<string | null>(null);
 
@@ -84,6 +94,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 .finally(() => setResultsLoading(false));
         }
     }, [tab]);
+
+    useEffect(() => {
+        if (phase === "result") {
+            getTodayRaceResults()
+                .then(res => setTodayResults(res))
+                .catch(err => {
+                    console.error("[HorseRaceModal] Failed to refresh results after race:", err);
+                });
+        }
+    }, [phase]);
 
     const handleClose = () => {
         if (phase === "racing") return;
@@ -577,6 +597,32 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <span>{res}</span>
                                                 </div>
                                             ))}
+                                        </div>
+                                        <div className="mt-3 text-xs text-gray-400">配当と購入一覧</div>
+                                        <div className="mt-2 space-y-2">
+                                            {r.bets.length === 0 ? (
+                                                <div className="text-gray-500 text-xs">購入者なし</div>
+                                            ) : (
+                                                r.bets.map((b) => (
+                                                    <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-300">User: {b.userId}</span>
+                                                            <span className="text-yellow-300">払い戻し {b.totalPayout.toLocaleString()}G</span>
+                                                        </div>
+                                                        <div className="text-gray-400">
+                                                            投票合計 {b.totalBet.toLocaleString()}G
+                                                        </div>
+                                                        <div className="mt-1 space-y-1">
+                                                            {b.items.map((it, idx) => (
+                                                                <div key={idx} className="flex justify-between text-gray-300">
+                                                                    <span>{it.type} #{it.horseId ?? "-"}</span>
+                                                                    <span>{it.amount.toLocaleString()}G / {it.payout.toLocaleString()}G</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     </div>
                                 ))
