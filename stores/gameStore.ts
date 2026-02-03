@@ -125,6 +125,8 @@ interface GameState {
     data: GameData;
     isLoading: boolean;
     error: string | null;
+    isDirty: boolean; // データが変更されたかどうか
+    lastSavedAt: number; // 最後に保存した時刻
 
     // ランキング
     xpRanking: RankingEntry[];
@@ -136,10 +138,12 @@ interface GameState {
     showXpGain: { amount: number; x: number; y: number } | null;
 
     // アクション
-    setData: (data: GameData) => void;
+    setData: (data: GameData, fromServer?: boolean) => void;
     setLoading: (isLoading: boolean) => void;
     setError: (error: string | null) => void;
     setRankings: (xp: RankingEntry[], money: RankingEntry[]) => void;
+    markDirty: () => void;
+    markClean: () => void;
 
     // レベルアップ演出
     showLevelUpModal: (reward: { money: number; unlock?: string }) => void;
@@ -167,16 +171,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     data: DEFAULT_GAME_DATA,
     isLoading: false,
     error: null,
+    isDirty: false,
+    lastSavedAt: Date.now(),
     xpRanking: [],
     moneyRanking: [],
     showLevelUp: false,
     levelUpReward: null,
     showXpGain: null,
 
-    setData: (data) => set({ data }),
+    setData: (data, fromServer = false) => set({
+        data,
+        isDirty: fromServer ? false : get().isDirty,
+        lastSavedAt: fromServer ? Date.now() : get().lastSavedAt
+    }),
     setLoading: (isLoading) => set({ isLoading }),
     setError: (error) => set({ error }),
     setRankings: (xp, money) => set({ xpRanking: xp, moneyRanking: money }),
+    markDirty: () => set({ isDirty: true }),
+    markClean: () => set({ isDirty: false, lastSavedAt: Date.now() }),
 
     showLevelUpModal: (reward) =>
         set({ showLevelUp: true, levelUpReward: reward }),
@@ -227,6 +239,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 level: newLevel,
                 money: didLevelUp ? data.money + 100 : data.money, // レベルアップ報酬
             },
+            isDirty: true, // データが変更された
         });
 
         if (didLevelUp) {
@@ -242,6 +255,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 ...data,
                 money: Math.max(0, data.money + amount),
             },
+            isDirty: true, // データが変更された
         });
     },
 
@@ -270,6 +284,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     [itemId]: currentCount + 1,
                 },
             },
+            isDirty: true, // データが変更された
         }));
 
         return { success: true };
@@ -314,7 +329,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         level: newLevel,
                         // レベルアップ時はお金も増える
                         money: didLevelUp ? state.data.money + 100 : state.data.money
-                    }
+                    },
+                    isDirty: true, // データが変更された
                 }));
 
                 if (didLevelUp) {

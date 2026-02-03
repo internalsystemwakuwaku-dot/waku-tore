@@ -61,7 +61,8 @@ export function BoardClient({ user }: BoardClientProps) {
                     const gameData = await getGameData(user.id);
 
                     // GameStoreを更新 (これをしないとHorseRaceModalなどでuserIdが取れない)
-                    useGameStore.getState().setData(gameData);
+                    // fromServer: true で isDirty をリセット
+                    useGameStore.getState().setData(gameData, true);
                     if (gameData.settings.hiddenListIds) {
                         setHiddenListIds(gameData.settings.hiddenListIds);
                     }
@@ -90,6 +91,52 @@ export function BoardClient({ user }: BoardClientProps) {
             useGameStore.getState().tick();
         }, 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    // 30秒ごとの自動保存
+    useEffect(() => {
+        const AUTO_SAVE_INTERVAL = 30000; // 30秒
+
+        const autoSave = async () => {
+            const gameState = useGameStore.getState();
+            if (gameState.isDirty && gameState.data.userId) {
+                try {
+                    const { saveGameData } = await import("@/app/actions/game");
+                    const result = await saveGameData(gameState.data.userId, gameState.data);
+                    if (result.success) {
+                        gameState.markClean();
+                        console.log("[AutoSave] Game data saved successfully");
+                    } else {
+                        console.error("[AutoSave] Failed to save game data");
+                    }
+                } catch (e) {
+                    console.error("[AutoSave] Error saving game data:", e);
+                }
+            }
+        };
+
+        const timer = setInterval(autoSave, AUTO_SAVE_INTERVAL);
+
+        // ページを離れる前にも保存
+        const handleBeforeUnload = () => {
+            const gameState = useGameStore.getState();
+            if (gameState.isDirty && gameState.data.userId) {
+                // sendBeacon を使って非同期で保存（ページ遷移をブロックしない）
+                navigator.sendBeacon(
+                    "/api/game/save",
+                    JSON.stringify({ userId: gameState.data.userId, data: gameState.data })
+                );
+            }
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            // クリーンアップ時にも保存を試みる
+            autoSave();
+        };
     }, []);
 
     // M-14: 期限切れメモを定期チェック

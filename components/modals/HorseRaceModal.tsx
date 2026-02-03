@@ -178,7 +178,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         // Payout refresh
                         try {
                             const updatedUser = await getGameData(gameUser.userId);
-                            setData(updatedUser);
+                            setData(updatedUser, true); // fromServer: true でisDirtyをリセット
                         } catch (e) {
                             console.error("[HorseRaceModal] Failed to refresh user data:", e);
                         }
