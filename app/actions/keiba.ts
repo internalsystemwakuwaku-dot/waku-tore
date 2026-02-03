@@ -140,11 +140,11 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     }
 
     // 遅延解決: もし予定時間を過ぎていて、まだ waiting なら解決を試みる
-    const scheduledTime = new Date(raceData.scheduledAt!);
+    const raceScheduledTime = new Date(raceData.scheduledAt!);
     const currentTime = new Date();
-    console.log(`[getActiveRace] Race ${raceId} - Status: ${raceData.status}, Scheduled: ${scheduledTime.toISOString()}, Current: ${currentTime.toISOString()}`);
+    console.log(`[getActiveRace] Race ${raceId} - Status: ${raceData.status}, Scheduled: ${raceScheduledTime.toISOString()}, Current: ${currentTime.toISOString()}`);
 
-    if (raceData.status === "waiting" && currentTime >= scheduledTime) {
+    if (raceData.status === "waiting" && currentTime >= raceScheduledTime) {
         console.log(`[getActiveRace] Race ${raceId} is past scheduled time, triggering resolution...`);
         // resolveRace内で排他制御を行うため、ここでは単に呼び出す
         const resolved = await resolveRace(raceId);
