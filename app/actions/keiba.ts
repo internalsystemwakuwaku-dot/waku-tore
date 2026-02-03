@@ -527,7 +527,7 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 .where(eq(keibaTransactions.id, bet.id));
 
             await transactMoney(bet.userId, payout, `競馬払戻 ${raceId} (${bet.type})`, "PAYOUT", tx);
-            await earnXp(bet.userId, "race_win");
+            await earnXp(bet.userId, "race_win", 1, tx);
         }
     }
 }
