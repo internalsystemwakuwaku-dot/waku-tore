@@ -28,10 +28,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     // M-20: Results Tab
     const [tab, setTab] = useState<"bet" | "result">("bet");
-    const [todayResults, setTodayResults] = useState<{ race: Race; results: string[] }[]>([]);
+    const [todayResults, setTodayResults] = useState<{ race: Race; results: string[]; ranking?: number[] }[]>([]);
+    const [resultsLoading, setResultsLoading] = useState(false);
+    const [resultsError, setResultsError] = useState<string | null>(null);
 
     useEffect(() => {
         if (tab === "result") {
+            setResultsLoading(true);
+            setResultsError(null);
             // Fetch results using Server Action
             getTodayRaceResults()
                 .then(res => {
@@ -40,7 +44,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 })
                 .catch(err => {
                     console.error("[HorseRaceModal] Failed to fetch results:", err);
+                    setResultsError("結果の取得に失敗しました");
                     setTodayResults([]);
+                })
+                .finally(() => {
+                    setResultsLoading(false);
                 });
         }
     }, [tab]);
@@ -63,6 +71,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 if (phase !== "racing") {
                     setPhase("result");
                 }
+            } else if (fetchedRace.status === "calculating") {
+                // サーバーが計算中 - racing として表示
+                setPhase("racing");
             } else if (fetchedRace.status === "waiting") {
                 const now = new Date();
                 const scheduled = new Date(fetchedRace.startedAt!);
@@ -149,10 +160,19 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
             if (currentStep >= steps) {
                 if (raceTimerRef.current) clearInterval(raceTimerRef.current);
-                setTimeout(() => setPhase("result"), 2000);
+                // Result フェーズ移行前に myBets を最新状態に更新
+                setTimeout(async () => {
+                    try {
+                        const { myBets: finalBets } = await getActiveRace(gameUser.userId);
+                        setMyBets(finalBets);
+                    } catch (e) {
+                        console.error("[HorseRaceModal] Failed to refresh bets before result:", e);
+                    }
+                    setPhase("result");
+                }, 2000);
             }
         }, interval);
-    }, []);
+    }, [gameUser.userId]);
 
     // Poll logic
     useEffect(() => {
@@ -169,10 +189,37 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                 try {
                     const { race: latestRace, myBets: latestBets } = await getActiveRace(gameUser.userId);
+
+                    // calculating 状態の場合は待機を継続
+                    if (latestRace.status === "calculating") {
+                        console.log("[HorseRaceModal] Race is calculating, waiting...");
+                        return;
+                    }
+
                     if (latestRace.status === "finished" && latestRace.winnerId) {
                         clearInterval(pollTimer);
                         setRace(latestRace);
-                        setMyBets(latestBets);
+
+                        // myBets の payout が更新されているか確認
+                        // payout が全て 0 の場合、サーバー側の処理が完了していない可能性があるため再取得
+                        const hasPayout = latestBets.some(b => (b.payout || 0) > 0);
+                        const hasWinningBet = latestBets.some(b => {
+                            // 勝利条件をチェック: WIN の場合は winnerId と一致、PLACE の場合は上位3着
+                            if (b.type === "WIN" && b.horseId === latestRace.winnerId) return true;
+                            if (b.type === "PLACE" && latestRace.ranking && latestRace.ranking.slice(0, 3).includes(b.horseId || 0)) return true;
+                            return false;
+                        });
+
+                        // 勝っているはずなのに payout が 0 の場合、少し待って再取得
+                        if (hasWinningBet && !hasPayout && latestBets.length > 0) {
+                            console.log("[HorseRaceModal] Winning bet detected but payout is 0, refetching...");
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            const { myBets: refreshedBets } = await getActiveRace(gameUser.userId);
+                            setMyBets(refreshedBets);
+                        } else {
+                            setMyBets(latestBets);
+                        }
+
                         startRiggedAnimation(latestRace.winnerId, latestRace.horses); // Pass horses explicitly
 
                         // Payout refresh
@@ -193,6 +240,15 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         } else if (phase === "result") {
             stopBgm();
             playSe("fanfare");
+            // 配当が反映された最新の残高を取得
+            (async () => {
+                try {
+                    const updatedUser = await getGameData(gameUser.userId);
+                    setData(updatedUser, true);
+                } catch (e) {
+                    console.error("[HorseRaceModal] Failed to refresh user data on result:", e);
+                }
+            })();
         } else {
             // betting
             playBgm("home"); // Assuming home BGM or maybe shop/custom for betting?
@@ -430,26 +486,53 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                                                 <div className="space-y-2">
                                                     <label className="text-sm font-bold text-gray-400">BET AMOUNT</label>
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="range"
-                                                            min="100"
-                                                            max={Math.min(gameUser.money, 100000)}
-                                                            step="100"
-                                                            value={betAmount}
-                                                            onChange={(e) => setBetAmount(Number(e.target.value))}
-                                                            className="flex-1 accent-yellow-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                                                        />
-                                                    </div>
-                                                    <div className="flex justify-between items-center mt-2">
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => setBetAmount(Math.max(100, betAmount - 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">-100</button>
-                                                            <button onClick={() => setBetAmount(Math.min(gameUser.money, betAmount + 100))} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">+100</button>
-                                                        </div>
-                                                        <span className="text-2xl font-mono font-bold text-white">
-                                                            {betAmount.toLocaleString()} G
-                                                        </span>
-                                                    </div>
+                                                    {/* 借金上限 -10000G を考慮して、使える最大金額を計算 */}
+                                                    {(() => {
+                                                        const DEBT_LIMIT = -10000;
+                                                        // 使える最大金額 = 現在の残高 + 借金可能額（借金上限まで）
+                                                        const availableFunds = gameUser.money - DEBT_LIMIT; // money=1000なら11000、money=-5000なら5000
+                                                        const maxBetAmount = Math.min(Math.max(100, availableFunds), 100000);
+
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center gap-3">
+                                                                    <input
+                                                                        type="range"
+                                                                        min="100"
+                                                                        max={maxBetAmount}
+                                                                        step="100"
+                                                                        value={Math.min(betAmount, maxBetAmount)}
+                                                                        onChange={(e) => setBetAmount(Number(e.target.value))}
+                                                                        className="flex-1 accent-yellow-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-between items-center mt-2">
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            onClick={() => setBetAmount(Math.max(100, betAmount - 100))}
+                                                                            className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600"
+                                                                        >
+                                                                            -100
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setBetAmount(Math.min(maxBetAmount, betAmount + 100))}
+                                                                            className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600"
+                                                                        >
+                                                                            +100
+                                                                        </button>
+                                                                    </div>
+                                                                    <span className="text-2xl font-mono font-bold text-white">
+                                                                        {betAmount.toLocaleString()} G
+                                                                    </span>
+                                                                </div>
+                                                                {gameUser.money < 0 && (
+                                                                    <p className="text-xs text-red-400 mt-1">
+                                                                        ※借金中 (残り借入可能: {Math.max(0, -DEBT_LIMIT + gameUser.money).toLocaleString()}G)
+                                                                    </p>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700">
@@ -565,11 +648,26 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         {myBets.some(b => b.payout! > 0) ? "🎉" : "💀"}
                                                     </div>
 
-                                                    <div className="mb-8">
-                                                        <p className="text-gray-400 text-xs mb-1">WINNER</p>
-                                                        <p className="text-3xl font-bold text-white">
-                                                            {horses.find(h => h.id === race?.winnerId)?.name}
-                                                        </p>
+                                                    <div className="mb-6">
+                                                        <p className="text-gray-400 text-xs mb-2">RANKING</p>
+                                                        <div className="space-y-1">
+                                                            {race?.ranking?.slice(0, 3).map((horseId, idx) => {
+                                                                const horse = horses.find(h => h.id === horseId);
+                                                                const placeLabels = ["🥇 1着", "🥈 2着", "🥉 3着"];
+                                                                const textColors = ["text-yellow-400", "text-gray-300", "text-orange-400"];
+                                                                return (
+                                                                    <div key={horseId} className={`flex justify-between items-center ${textColors[idx]}`}>
+                                                                        <span className="font-bold">{placeLabels[idx]}</span>
+                                                                        <span className="font-bold">{horse?.name || `Horse #${horseId}`}</span>
+                                                                        <span className="text-sm">({horse?.odds?.toFixed(1)}倍)</span>
+                                                                    </div>
+                                                                );
+                                                            }) || (
+                                                                <div className="text-white">
+                                                                    <p className="text-xl font-bold">{horses.find(h => h.id === race?.winnerId)?.name}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     <div className="py-4 border-t border-gray-800 bg-gray-800/50 rounded-lg mb-6">
@@ -591,21 +689,45 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         </>
                     ) : (
                         <div className="space-y-4">
-                            <h3 className="text-white font-bold text-lg mb-2">今日のレース結果一覧 (M-20)</h3>
-                            {todayResults.length === 0 ? (
-                                <div className="text-gray-500 text-center py-10">データ取得中、または結果がありません</div>
+                            <h3 className="text-white font-bold text-lg mb-2">今日のレース結果一覧</h3>
+                            {resultsLoading ? (
+                                <div className="text-gray-400 text-center py-10">
+                                    <div className="animate-spin text-3xl mb-2">↻</div>
+                                    <p>結果を取得中...</p>
+                                </div>
+                            ) : resultsError ? (
+                                <div className="text-red-400 text-center py-10">
+                                    <p className="text-2xl mb-2">⚠️</p>
+                                    <p>{resultsError}</p>
+                                    <button
+                                        onClick={() => setTab("bet")}
+                                        className="mt-4 px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+                                    >
+                                        戻る
+                                    </button>
+                                </div>
+                            ) : todayResults.length === 0 ? (
+                                <div className="text-gray-500 text-center py-10">
+                                    <p className="text-3xl mb-2">📭</p>
+                                    <p>本日はまだレース結果がありません</p>
+                                    <p className="text-xs mt-2">レースが終了すると結果が表示されます</p>
+                                </div>
                             ) : (
                                 todayResults.map((r, i) => (
                                     <div key={i} className="bg-gray-800 p-4 rounded border border-gray-700">
                                         <div className="flex justify-between text-xs text-gray-400 mb-2">
-                                            <span>{new Date(r.race.startedAt!).toLocaleTimeString()}</span>
-                                            <span className={r.race.status === "finished" ? "text-green-500" : "text-gray-500"}>{r.race.status}</span>
+                                            <span>{new Date(r.race.startedAt!).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
+                                            <span className={r.race.status === "finished" ? "text-green-500" : "text-gray-500"}>
+                                                {r.race.status === "finished" ? "確定" : r.race.status}
+                                            </span>
                                         </div>
                                         <h4 className="font-bold text-white text-md mb-2">{r.race.name}</h4>
                                         <div className="bg-black/30 p-2 rounded text-sm font-mono text-gray-300">
-                                            {r.results.map((res, j) => (
+                                            {r.results.slice(0, 3).map((res, j) => (
                                                 <div key={j} className="flex gap-2">
-                                                    <span className={`font-bold ${j === 0 ? "text-yellow-400" : j === 1 ? "text-gray-300" : "text-orange-400"}`}>{j + 1}着</span>
+                                                    <span className={`font-bold ${j === 0 ? "text-yellow-400" : j === 1 ? "text-gray-300" : "text-orange-400"}`}>
+                                                        {j === 0 ? "🥇" : j === 1 ? "🥈" : "🥉"} {j + 1}着
+                                                    </span>
                                                     <span>{res}</span>
                                                 </div>
                                             ))}

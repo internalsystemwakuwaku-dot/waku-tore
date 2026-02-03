@@ -19,9 +19,10 @@ export interface Race {
     id: string;
     name: string;
     horses: Horse[];
-    status: "waiting" | "racing" | "finished";
+    status: "waiting" | "racing" | "calculating" | "finished";
     winnerId: number | null;
     startedAt: string | null;
+    ranking?: number[]; // 着順 (1着, 2着, 3着...) の馬ID配列
 }
 
 // 賭けの種類・モード

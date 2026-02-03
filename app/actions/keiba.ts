@@ -152,11 +152,48 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
             console.log(`[getActiveRace] Race ${raceId} resolved successfully`);
             raceData = resolved;
         } else {
-            // 別プロセスが処理中、あるいは完了直後。再取得する
-            console.log(`[getActiveRace] Race ${raceId} was already being processed, refetching...`);
+            // 別プロセスが処理中 (calculating) 、あるいは完了直後 (finished)
+            // 完了するまで少し待機してから再取得 (最大3回リトライ)
+            console.log(`[getActiveRace] Race ${raceId} was already being processed, waiting for completion...`);
+            let retryCount = 0;
+            const maxRetries = 3;
+            const retryDelay = 500; // 500ms
+
+            while (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
+                if (refetched[0]) {
+                    raceData = refetched[0];
+                    if (raceData.status === "finished") {
+                        console.log(`[getActiveRace] Race ${raceId} finished after ${retryCount + 1} retries`);
+                        break;
+                    }
+                }
+                retryCount++;
+            }
+
+            // 最終取得
+            if (raceData.status !== "finished") {
+                const finalFetch = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
+                if (finalFetch[0]) raceData = finalFetch[0];
+            }
+        }
+    }
+
+    // calculating 状態の場合も待機 (別のリクエストで解決中)
+    if (raceData.status === "calculating") {
+        console.log(`[getActiveRace] Race ${raceId} is in calculating state, waiting...`);
+        let retryCount = 0;
+        const maxRetries = 5;
+        const retryDelay = 300;
+
+        while (retryCount < maxRetries && raceData.status === "calculating") {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
             const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
             if (refetched[0]) raceData = refetched[0];
+            retryCount++;
         }
+        console.log(`[getActiveRace] Race ${raceId} final status after waiting: ${raceData.status}`);
     }
 
     // 自分のベットを取得
@@ -183,6 +220,16 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         createdAt: b.createdAt || "",
     }));
 
+    // ranking をパース (存在する場合)
+    let ranking: number[] | undefined;
+    if (raceData.resultsJson) {
+        try {
+            ranking = JSON.parse(raceData.resultsJson) as number[];
+        } catch {
+            ranking = undefined;
+        }
+    }
+
     const race: Race = {
         id: raceData.id,
         name: raceData.name,
@@ -191,6 +238,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         status: raceData.status as any,
         startedAt: raceData.scheduledAt,
         winnerId: raceData.winnerId,
+        ranking, // 着順情報を追加
     };
 
     return { race, myBets };
@@ -450,8 +498,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
 
         const betType = (bet.type || "WIN").toUpperCase();
 
-        // WIN (単勝)
-        if (betType === "WIN" || betType === "TANSHO") {
+        // WIN (単勝) - "WIN" または "TANSHO" に対応
+        if (betType === "WIN" || betType === "TANSHO" || betType === "単勝") {
             if (betHorses[0] === r1) {
                 isWin = true;
                 const horse = horses.find(h => h.id === r1);
@@ -460,8 +508,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
-        // PLACE (複勝)
-        else if (betType === "PLACE" || betType === "FUKUSHO") {
+        // PLACE (複勝) - "PLACE" または "FUKUSHO" に対応
+        else if (betType === "PLACE" || betType === "FUKUSHO" || betType === "複勝") {
             if (betHorses[0] && top3Set.has(betHorses[0])) {
                 isWin = true;
                 const horse = horses.find(h => h.id === betHorses[0]);
@@ -470,8 +518,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
-        // UMAREN (馬連)
-        else if (betType === "UMAREN") {
+        // UMAREN (馬連) - "UMAREN" または "QUINELLA" に対応
+        else if (betType === "UMAREN" || betType === "QUINELLA" || betType === "馬連") {
             if (betHorses.length >= 2) {
                 const h1 = betHorses[0];
                 const h2 = betHorses[1];
@@ -483,8 +531,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 }
             }
         }
-        // UMATAN (馬単)
-        else if (betType === "UMATAN") {
+        // UMATAN (馬単) - "UMATAN" または "EXACTA" に対応
+        else if (betType === "UMATAN" || betType === "EXACTA" || betType === "馬単") {
             if (betHorses.length >= 2 && betHorses[0] === r1 && betHorses[1] === r2) {
                 isWin = true;
                 // 馬単のデフォルトオッズは10.0倍
@@ -492,8 +540,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
-        // SANRENPUKU (3連複)
-        else if (betType === "SANRENPUKU") {
+        // SANRENPUKU (3連複) - "SANRENPUKU" または "TRIO" に対応
+        else if (betType === "SANRENPUKU" || betType === "TRIO" || betType === "3連複") {
             if (betHorses.length >= 3) {
                 const betSet = new Set(betHorses.slice(0, 3));
                 if (betSet.has(r1) && betSet.has(r2) && betSet.has(r3)) {
@@ -504,8 +552,8 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
                 }
             }
         }
-        // SANRENTAN (3連単)
-        else if (betType === "SANRENTAN") {
+        // SANRENTAN (3連単) - "SANRENTAN" または "TRIFECTA" に対応
+        else if (betType === "SANRENTAN" || betType === "TRIFECTA" || betType === "3連単") {
             if (betHorses.length >= 3 &&
                 betHorses[0] === r1 && betHorses[1] === r2 && betHorses[2] === r3) {
                 isWin = true;
@@ -776,18 +824,18 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
  */
 export async function getTodayRaceResults(): Promise<{ race: Race; results: string[]; ranking: number[] }[]> {
     try {
-        // JSTで現在時刻を取得
+        // JSTで現在時刻を取得 (UTC + 9時間)
         const now = new Date();
-        const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
-        const nowJst = new Date(nowJstStr);
+        const jstOffset = 9 * 60 * 60 * 1000; // 9時間をミリ秒に
+        const nowJst = new Date(now.getTime() + jstOffset);
 
         // JSTの本日の日付をYYYYMMDD形式で取得
-        const y = nowJst.getFullYear();
-        const m = String(nowJst.getMonth() + 1).padStart(2, "0");
-        const d = String(nowJst.getDate()).padStart(2, "0");
+        const y = nowJst.getUTCFullYear();
+        const m = String(nowJst.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(nowJst.getUTCDate()).padStart(2, "0");
         const todayPrefix = `${y}${m}${d}_%`; // 例: "20240115_%"
 
-        console.log(`[getTodayRaceResults] JST Today: ${y}-${m}-${d}, ID Prefix: ${todayPrefix}`);
+        console.log(`[getTodayRaceResults] JST Today: ${y}-${m}-${d}, ID Prefix: ${todayPrefix}, UTC now: ${now.toISOString()}`);
 
         // レースIDのプレフィックスでフィルタリング（より確実な方法）
         const races = await db
@@ -828,10 +876,13 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
 
             return {
                 race: {
-                    ...r,
-                    status: r.status as "waiting" | "racing" | "finished",
+                    id: r.id,
+                    name: r.name,
+                    status: r.status as "waiting" | "racing" | "calculating" | "finished",
                     horses: JSON.parse(r.horsesJson),
-                    startedAt: r.scheduledAt || r.createdAt || ""
+                    startedAt: r.scheduledAt || r.createdAt || "",
+                    winnerId: r.winnerId,
+                    ranking: resultIds
                 },
                 results,
                 ranking: resultIds
