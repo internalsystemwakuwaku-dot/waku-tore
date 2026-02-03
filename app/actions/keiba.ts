@@ -35,38 +35,58 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
     const nowJst = new Date(nowJstStr);
 
-    let nextRaceConfig = null;
-    const raceDate = new Date(nowJst);
     const currentH = nowJst.getHours();
     const currentM = nowJst.getMinutes();
 
+    let currentRaceConfig: { h: number; m: number } | null = null;
+    let nextRaceConfig: { h: number; m: number } | null = null;
+
     for (const s of RACE_SCHEDULE) {
-        if (s.h > currentH || (s.h === currentH && s.m > currentM)) {
+        if (s.h < currentH || (s.h === currentH && s.m <= currentM)) {
+            currentRaceConfig = s;
+        } else if (!nextRaceConfig) {
             nextRaceConfig = s;
-            break;
         }
     }
 
-    if (!nextRaceConfig) {
-        nextRaceConfig = RACE_SCHEDULE[0];
-        raceDate.setDate(raceDate.getDate() + 1);
+    const buildRaceMeta = (baseDate: Date, config: { h: number; m: number }) => {
+        const raceDate = new Date(baseDate);
+        raceDate.setHours(config.h, config.m, 0, 0);
+        const y = raceDate.getFullYear();
+        const m = String(raceDate.getMonth() + 1).padStart(2, "0");
+        const d = String(raceDate.getDate()).padStart(2, "0");
+        const hh = String(config.h).padStart(2, "0");
+        const mm = String(config.m).padStart(2, "0");
+        const correctIsoWithOffset = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
+        const scheduledTime = new Date(correctIsoWithOffset);
+        const raceId = `${y}${m}${d}_${hh}${mm}`;
+        return { raceId, scheduledTime };
+    };
+
+    const today = new Date(nowJst);
+    let targetRaceId: string | null = null;
+    let targetScheduledTime: Date | null = null;
+
+    if (!currentRaceConfig) {
+        // Before the first race of the day
+        if (!nextRaceConfig) nextRaceConfig = RACE_SCHEDULE[0];
+        const meta = buildRaceMeta(today, nextRaceConfig);
+        targetRaceId = meta.raceId;
+        targetScheduledTime = meta.scheduledTime;
+    } else {
+        const currentMeta = buildRaceMeta(today, currentRaceConfig);
+        targetRaceId = currentMeta.raceId;
+        targetScheduledTime = currentMeta.scheduledTime;
     }
 
-    raceDate.setHours(nextRaceConfig.h, nextRaceConfig.m, 0, 0);
-    const y = raceDate.getFullYear();
-    const m = String(raceDate.getMonth() + 1).padStart(2, "0");
-    const d = String(raceDate.getDate()).padStart(2, "0");
-    const hh = String(nextRaceConfig.h).padStart(2, "0");
-    const mm = String(nextRaceConfig.m).padStart(2, "0");
-
-    const correctIsoWithOffset = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
-    const scheduledTime = new Date(correctIsoWithOffset);
-    const raceId = `${y}${m}${d}_${hh}${mm}`;
+    if (!targetRaceId || !targetScheduledTime) {
+        throw new Error("Race schedule not found");
+    }
 
     let raceData = await db
         .select()
         .from(keibaRaces)
-        .where(eq(keibaRaces.id, raceId))
+        .where(eq(keibaRaces.id, targetRaceId))
         .limit(1)
         .then((res) => res[0]);
 
@@ -79,29 +99,29 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         const name = generateRaceName();
         try {
             await db.insert(keibaRaces).values({
-                id: raceId,
+                id: targetRaceId,
                 userId: null,
                 name,
                 horsesJson: JSON.stringify(horses),
                 status: "waiting",
-                scheduledAt: scheduledTime.toISOString(),
+                scheduledAt: targetScheduledTime.toISOString(),
                 resultsJson: null,
             });
 
             raceData = {
-                id: raceId,
+                id: targetRaceId,
                 userId: null,
                 name,
                 horsesJson: JSON.stringify(horses),
                 status: "waiting",
-                scheduledAt: scheduledTime.toISOString(),
+                scheduledAt: targetScheduledTime.toISOString(),
                 winnerId: null,
                 resultsJson: null,
                 finishedAt: null,
                 createdAt: now.toISOString(),
             };
         } catch (e) {
-            const retry = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
+            const retry = await db.select().from(keibaRaces).where(eq(keibaRaces.id, targetRaceId)).limit(1);
             if (retry[0]) raceData = retry[0];
             else throw e;
         }
@@ -111,7 +131,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     const currentTime = new Date();
 
     if (raceData.status === "waiting" && currentTime >= raceScheduledTime) {
-        const resolved = await resolveRace(raceId);
+        const resolved = await resolveRace(targetRaceId);
         if (resolved) {
             raceData = resolved;
         } else {
@@ -121,7 +141,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
 
             while (retryCount < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
-                const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
+                const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, targetRaceId)).limit(1);
                 if (refetched[0]) {
                     raceData = refetched[0];
                     if (raceData.status === "finished") break;
@@ -138,9 +158,73 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
 
         while (retryCount < maxRetries && raceData.status === "calculating") {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
-            const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
+            const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, targetRaceId)).limit(1);
             if (refetched[0]) raceData = refetched[0];
             retryCount++;
+        }
+    }
+
+    // If current race already finished, but user has bets on it, keep showing it.
+    if (raceData.status === "finished") {
+        const hasMyBets = await db
+            .select({ id: keibaTransactions.id })
+            .from(keibaTransactions)
+            .where(and(eq(keibaTransactions.raceId, raceData.id), eq(keibaTransactions.userId, userId)))
+            .limit(1)
+            .then((res) => res.length > 0);
+
+        if (!hasMyBets) {
+            // Move to next race (today or tomorrow)
+            let nextMeta: { raceId: string; scheduledTime: Date } | null = null;
+            if (nextRaceConfig) {
+                nextMeta = buildRaceMeta(today, nextRaceConfig);
+            } else {
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                nextMeta = buildRaceMeta(tomorrow, RACE_SCHEDULE[0]);
+            }
+
+            if (nextMeta) {
+                targetRaceId = nextMeta.raceId;
+                targetScheduledTime = nextMeta.scheduledTime;
+                raceData = await db
+                    .select()
+                    .from(keibaRaces)
+                    .where(eq(keibaRaces.id, targetRaceId))
+                    .limit(1)
+                    .then((res) => res[0]);
+
+                if (!raceData) {
+                    const horses: Horse[] = DEFAULT_HORSES.map((h) => ({
+                        ...h,
+                        odds: Math.round((h.odds + (Math.random() - 0.5) * 0.5) * 10) / 10,
+                    }));
+
+                    const name = generateRaceName();
+                    await db.insert(keibaRaces).values({
+                        id: targetRaceId,
+                        userId: null,
+                        name,
+                        horsesJson: JSON.stringify(horses),
+                        status: "waiting",
+                        scheduledAt: targetScheduledTime.toISOString(),
+                        resultsJson: null,
+                    });
+
+                    raceData = {
+                        id: targetRaceId,
+                        userId: null,
+                        name,
+                        horsesJson: JSON.stringify(horses),
+                        status: "waiting",
+                        scheduledAt: targetScheduledTime.toISOString(),
+                        winnerId: null,
+                        resultsJson: null,
+                        finishedAt: null,
+                        createdAt: now.toISOString(),
+                    };
+                }
+            }
         }
     }
 
