@@ -243,6 +243,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 if (typeof result.newBalance === "number") {
                     setData({ ...gameUser, money: result.newBalance });
                 }
+                try {
+                    const updatedUser = await getGameData(gameUser.userId);
+                    setData(updatedUser, true);
+                } catch (e) {
+                    console.error("[HorseRaceModal] Failed to refresh user data after bet:", e);
+                }
                 await fetchRace();
                 playSe("coin");
                 alert("投票しました");
@@ -270,6 +276,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             if (result.success) {
                 if (typeof result.newBalance === "number") {
                     setData({ ...gameUser, money: result.newBalance });
+                }
+                try {
+                    const updatedUser = await getGameData(gameUser.userId);
+                    setData(updatedUser, true);
+                } catch (e) {
+                    console.error("[HorseRaceModal] Failed to refresh user data after cancel:", e);
                 }
                 await fetchRace();
                 playSe("coin");
