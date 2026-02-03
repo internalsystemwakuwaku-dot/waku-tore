@@ -14,7 +14,7 @@
 
 import { db } from "@/lib/db/client";
 import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
-import { eq, desc, and, lt, gt, gte, lte } from "drizzle-orm";
+import { eq, desc, and, lt, gt, gte, lte, like, or } from "drizzle-orm";
 import { logActivity } from "./log";
 import type {
     Race,
@@ -140,13 +140,20 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     }
 
     // 遅延解決: もし予定時間を過ぎていて、まだ waiting なら解決を試みる
-    if (raceData.status === "waiting" && new Date() >= new Date(raceData.scheduledAt!)) {
+    const scheduledTime = new Date(raceData.scheduledAt!);
+    const currentTime = new Date();
+    console.log(`[getActiveRace] Race ${raceId} - Status: ${raceData.status}, Scheduled: ${scheduledTime.toISOString()}, Current: ${currentTime.toISOString()}`);
+
+    if (raceData.status === "waiting" && currentTime >= scheduledTime) {
+        console.log(`[getActiveRace] Race ${raceId} is past scheduled time, triggering resolution...`);
         // resolveRace内で排他制御を行うため、ここでは単に呼び出す
         const resolved = await resolveRace(raceId);
         if (resolved) {
+            console.log(`[getActiveRace] Race ${raceId} resolved successfully`);
             raceData = resolved;
         } else {
             // 別プロセスが処理中、あるいは完了直後。再取得する
+            console.log(`[getActiveRace] Race ${raceId} was already being processed, refetching...`);
             const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, raceId)).limit(1);
             if (refetched[0]) raceData = refetched[0];
         }
@@ -340,51 +347,63 @@ export async function cancelBet(
  * [FIX] Atomic Status Update to prevent Race Conditions (Double Payout)
  */
 async function resolveRace(raceId: string) {
-    // トランザクションで原子性を確保
-    return await db.transaction(async (tx) => {
-        // 排他制御: status='waiting' の行を 'calculating' に更新できたプロセスだけが進む
-        const updatedRows = await tx
-            .update(keibaRaces)
-            .set({
-                status: "calculating",
-                finishedAt: new Date().toISOString(),
-            })
-            .where(
-                and(
-                    eq(keibaRaces.id, raceId),
-                    eq(keibaRaces.status, "waiting")
+    console.log(`[resolveRace] Starting resolution for race: ${raceId}`);
+
+    try {
+        // トランザクションで原子性を確保
+        return await db.transaction(async (tx) => {
+            // 排他制御: status='waiting' の行を 'calculating' に更新できたプロセスだけが進む
+            const updatedRows = await tx
+                .update(keibaRaces)
+                .set({
+                    status: "calculating",
+                    finishedAt: new Date().toISOString(),
+                })
+                .where(
+                    and(
+                        eq(keibaRaces.id, raceId),
+                        eq(keibaRaces.status, "waiting")
+                    )
                 )
-            )
-            .returning();
+                .returning();
 
-        // 更新対象がなかった場合 = 既に他のリクエストが処理したか、完了している
-        if (updatedRows.length === 0) {
-            return null;
-        }
+            // 更新対象がなかった場合 = 既に他のリクエストが処理したか、完了している
+            if (updatedRows.length === 0) {
+                console.log(`[resolveRace] Race ${raceId} already processed or not in waiting status`);
+                return null;
+            }
 
-        const race = updatedRows[0];
-        const horses: Horse[] = JSON.parse(race.horsesJson);
+            const race = updatedRows[0];
+            const horses: Horse[] = JSON.parse(race.horsesJson);
 
-        // 全順位を決定 (決定的)
-        const ranking = determineRanking(horses);
-        const winnerId = ranking[0];
+            // 全順位を決定 (決定的)
+            const ranking = determineRanking(horses);
+            const winnerId = ranking[0];
 
-        // 結果を保存し、ステータスを finished に
-        const finalizingRows = await tx
-            .update(keibaRaces)
-            .set({
-                status: "finished",
-                winnerId,
-                resultsJson: JSON.stringify(ranking),
-            })
-            .where(eq(keibaRaces.id, raceId))
-            .returning();
+            console.log(`[resolveRace] Race ${raceId} - Winner: ${winnerId}, Ranking: ${ranking.join(", ")}`);
 
-        // 配当処理 (同じトランザクション内で実行)
-        await processPayouts(raceId, ranking, horses, tx);
+            // 結果を保存し、ステータスを finished に
+            const finalizingRows = await tx
+                .update(keibaRaces)
+                .set({
+                    status: "finished",
+                    winnerId,
+                    resultsJson: JSON.stringify(ranking),
+                })
+                .where(eq(keibaRaces.id, raceId))
+                .returning();
 
-        return finalizingRows[0];
-    });
+            // 配当処理 (同じトランザクション内で実行)
+            await processPayouts(raceId, ranking, horses, tx);
+
+            console.log(`[resolveRace] Race ${raceId} finished successfully`);
+
+            return finalizingRows[0];
+        });
+    } catch (error) {
+        console.error(`[resolveRace] Error resolving race ${raceId}:`, error);
+        throw error;
+    }
 }
 
 /**
@@ -753,7 +772,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
 /**
  * 本日のレース結果一覧を取得 (M-20)
  * 完了済みのレースと着順、配当を返す
- * JSTタイムゾーンを考慮して本日の範囲を計算
+ * レースIDのプレフィックス (YYYYMMDD_) でフィルタリング
  */
 export async function getTodayRaceResults(): Promise<{ race: Race; results: string[]; ranking: number[] }[]> {
     try {
@@ -762,37 +781,36 @@ export async function getTodayRaceResults(): Promise<{ race: Race; results: stri
         const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
         const nowJst = new Date(nowJstStr);
 
-        // JSTの本日0:00と23:59:59を計算
+        // JSTの本日の日付をYYYYMMDD形式で取得
         const y = nowJst.getFullYear();
         const m = String(nowJst.getMonth() + 1).padStart(2, "0");
         const d = String(nowJst.getDate()).padStart(2, "0");
+        const todayPrefix = `${y}${m}${d}_%`; // 例: "20240115_%"
 
-        // JSTの本日の範囲をUTCに変換
-        // JST 00:00:00 = UTC 前日15:00:00
-        // JST 23:59:59 = UTC 本日14:59:59
-        const startOfDayJst = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
-        const endOfDayJst = new Date(`${y}-${m}-${d}T23:59:59+09:00`);
+        console.log(`[getTodayRaceResults] JST Today: ${y}-${m}-${d}, ID Prefix: ${todayPrefix}`);
 
-        // UTC ISO文字列に変換
-        const startUtc = startOfDayJst.toISOString();
-        const endUtc = endOfDayJst.toISOString();
-
-        console.log(`[getTodayRaceResults] JST Today: ${y}-${m}-${d}, UTC Range: ${startUtc} to ${endUtc}`);
-
-        // scheduledAtはUTC ISO文字列で保存されている
+        // レースIDのプレフィックスでフィルタリング（より確実な方法）
         const races = await db
             .select()
             .from(keibaRaces)
             .where(
                 and(
                     eq(keibaRaces.status, "finished"),
-                    gte(keibaRaces.scheduledAt, startUtc),
-                    lte(keibaRaces.scheduledAt, endUtc)
+                    like(keibaRaces.id, todayPrefix)
                 )
             )
             .orderBy(desc(keibaRaces.scheduledAt));
 
         console.log(`[getTodayRaceResults] Found ${races.length} finished races`);
+
+        // デバッグ: 全ての finished レースも確認
+        const allFinished = await db
+            .select()
+            .from(keibaRaces)
+            .where(eq(keibaRaces.status, "finished"))
+            .orderBy(desc(keibaRaces.scheduledAt))
+            .limit(10);
+        console.log(`[getTodayRaceResults] All finished races (last 10):`, allFinished.map(r => ({ id: r.id, status: r.status, scheduledAt: r.scheduledAt })));
 
         return races.map(r => {
             let results: string[] = [];
