@@ -31,13 +31,31 @@ const RACE_SCHEDULE = [
     { h: 17, m: 55 }, { h: 21, m: 30 }, { h: 23, m: 30 }, { h: 23, m: 40 },
 ];
 
+function getJstParts(date: Date) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    }).formatToParts(date);
+    const get = (type: string, fallback: string) => parts.find(p => p.type === type)?.value || fallback;
+    return {
+        y: get("year", "1970"),
+        m: get("month", "01"),
+        d: get("day", "01"),
+        h: Number(get("hour", "0")),
+        min: Number(get("minute", "0")),
+    };
+}
+
 export async function getActiveRace(userId: string): Promise<{ race: Race; myBets: Bet[] }> {
     const now = new Date();
-    const nowJstStr = now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
-    const nowJst = new Date(nowJstStr);
-
-    const currentH = nowJst.getHours();
-    const currentM = nowJst.getMinutes();
+    const nowJstParts = getJstParts(now);
+    const currentH = nowJstParts.h;
+    const currentM = nowJstParts.min;
 
     let currentRaceConfig: { h: number; m: number } | null = null;
     let nextRaceConfig: { h: number; m: number } | null = null;
@@ -51,11 +69,10 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     }
 
     const buildRaceMeta = (baseDate: Date, config: { h: number; m: number }) => {
-        const raceDate = new Date(baseDate);
-        raceDate.setHours(config.h, config.m, 0, 0);
-        const y = raceDate.getFullYear();
-        const m = String(raceDate.getMonth() + 1).padStart(2, "0");
-        const d = String(raceDate.getDate()).padStart(2, "0");
+        const baseParts = getJstParts(baseDate);
+        const y = baseParts.y;
+        const m = baseParts.m;
+        const d = baseParts.d;
         const hh = String(config.h).padStart(2, "0");
         const mm = String(config.m).padStart(2, "0");
         const correctIsoWithOffset = `${y}-${m}-${d}T${hh}:${mm}:00+09:00`;
@@ -64,7 +81,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         return { raceId, scheduledTime };
     };
 
-    const today = new Date(nowJst);
+    const today = new Date(`${nowJstParts.y}-${nowJstParts.m}-${nowJstParts.d}T00:00:00+09:00`);
     let targetRaceId: string | null = null;
     let targetScheduledTime: Date | null = null;
 
@@ -180,8 +197,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
             if (nextRaceConfig) {
                 nextMeta = buildRaceMeta(today, nextRaceConfig);
             } else {
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
                 nextMeta = buildRaceMeta(tomorrow, RACE_SCHEDULE[0]);
             }
 
@@ -521,10 +537,13 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
         }
 
         if (isWin && payout > 0) {
-            await queryBuilder
+            const updated = await queryBuilder
                 .update(keibaTransactions)
                 .set({ payout, isWin: true })
-                .where(eq(keibaTransactions.id, bet.id));
+                .where(and(eq(keibaTransactions.id, bet.id), eq(keibaTransactions.payout, 0)))
+                .returning({ id: keibaTransactions.id });
+
+            if (updated.length === 0) continue;
 
             await transactMoney(bet.userId, payout, `競馬払戻 ${raceId} (${bet.type})`, "PAYOUT", tx);
             await earnXp(bet.userId, "race_win", 1, tx);

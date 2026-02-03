@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 /**
  * ゲーム Server Actions
@@ -13,7 +13,7 @@ import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/typ
 import { getBoosterDurationMs, getMoneyMultiplier, getXpFlatBonus, getXpMultiplier } from "@/lib/gameEffects";
 
 /**
- * ゲームチE�Eタを取得（なければ作�E�E�E
+ * ゲームチE�Eタを取得（なければ作�E�E�E
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getGameData(userId: string, tx?: any): Promise<GameData> {
@@ -31,7 +31,7 @@ export async function getGameData(userId: string, tx?: any): Promise<GameData> {
         return data;
     }
 
-    // 新規作�E
+    // 新規作�E
     const newData = { ...DEFAULT_GAME_DATA, userId };
     // queryBuilder is already defined at top of function
     await queryBuilder.insert(gameData).values({
@@ -39,13 +39,13 @@ export async function getGameData(userId: string, tx?: any): Promise<GameData> {
         dataJson: JSON.stringify(newData),
     });
 
-    // M-12: 初期所持E��の記録
+    // M-12: 初期所持E��の記録
     try {
         await queryBuilder.insert(transactions).values({
             userId,
             type: 'INITIAL',
             amount: Math.floor(newData.money),
-            description: '初期所持E��',
+            description: '初期所持E��',
             balanceAfter: Math.floor(newData.money),
         });
     } catch (e) {
@@ -56,7 +56,7 @@ export async function getGameData(userId: string, tx?: any): Promise<GameData> {
 }
 
 /**
- * ゲームチE�Eタを保孁E
+ * ゲームチE�Eタを保孁E
  */
 export async function saveGameData(
     userId: string,
@@ -84,7 +84,7 @@ export async function saveGameData(
 }
 
 /**
- * XPを獲得してレベルアチE�EをチェチE��
+ * XPを獲得してレベルアチE�EをチェチE��
  */
 export async function earnXp(
     userId: string,
@@ -108,7 +108,7 @@ export async function earnXp(
         const xpFlatBonus = getXpFlatBonus(inventory, activeBoosts);
         const xpGained = Math.floor((baseXp + xpFlatBonus) * multiplier * xpMultiplier);
 
-        // レベルアチE�EチェチE��
+        // レベルアチE�EチェチE��
         let levelUp = false;
         let newLevel: number | undefined;
         let reward: { money: number; unlock?: string } | undefined;
@@ -119,13 +119,13 @@ export async function earnXp(
         const requiredXp = LEVEL_TABLE[nextLevel] || (LEVEL_TABLE[20] + (nextLevel - 20) * 3000);
 
         if (currentTotalXp >= requiredXp) {
-            // レベル報酬をチェチE��
+            // レベル報酬をチェチE��
             const levelReward = LEVEL_REWARDS.find((r) => r.level === nextLevel);
 
             if (levelReward && levelReward.reward.money > 0) {
-                // M-12: お��付与を Ledger 経由で実衁E
-                await transactMoney(userId, levelReward.reward.money, `レベルアチE�E報酬 (Lv.${nextLevel})`, "LEVEL_UP");
-                // チE�Eタ再取征E(お��更新征E
+                // M-12: お��付与を Ledger 経由で実衁E
+                await transactMoney(userId, levelReward.reward.money, `レベルアチE�E報酬 (Lv.${nextLevel})`, "LEVEL_UP", tx);
+                // チE�Eタ再取征E(お��更新征E
                 data = await getGameData(userId, tx);
                 reward = levelReward.reward;
             } else if (levelReward) {
@@ -162,8 +162,8 @@ export async function earnXp(
 }
 
 /**
- * 所持E��を増渁E
- * M-10: 日次借��制陁E(1日10,000Gまで) 対忁E
+ * 所持E��を増渁E
+ * M-10: 日次借��制陁E(1日10,000Gまで) 対忁E
  * M-12: 取引台帳 (transactions) への記録対忁E
  */
 export async function transactMoney(
@@ -177,7 +177,7 @@ export async function transactMoney(
     try {
         if (!userId) {
             console.error("[transactMoney] Error: userId is missing");
-            return { success: false, error: "ユーザーIDが忁E��でぁE };
+            return { success: false, error: "ユーザーIDが忁E��でぁE };
         }
 
         const data = await getGameData(userId, tx);
@@ -190,28 +190,28 @@ export async function transactMoney(
             ? Math.floor(amount * moneyMultiplier)
             : amount;
 
-        // 借��上限 (-10,000G) チェチE��
+        // 借��上限 (-10,000G) チェチE��
         const DEBT_LIMIT = -10000;
         if (amount < 0 && data.money + amount < DEBT_LIMIT) {
-            return { success: false, error: `賁E��不足でぁE(借��上限: ${DEBT_LIMIT.toLocaleString()}G)` };
+            return { success: false, error: `賁E��不足でぁE(借��上限: ${DEBT_LIMIT.toLocaleString()}G)` };
         }
 
-        // 日次借��制限チェチE�� (LOANの場合�Eみ)
-        // GASでは type === 'LOAN' で判定してぁE��が、借��(マイナス)全般に適用すべきか�E�E
-        // M-10実裁E��は「借�߁E��Eイナス amount�E��E場合」としてぁE��、E
-        // typeパラメータが来た�Eで、�E示皁E��LOAN以外でも�EイナスならチェチE��する方針�E維持しつつ、E
+        // 日次借��制限チェチE�� (LOANの場合�Eみ)
+        // GASでは type === 'LOAN' で判定してぁE��が、借��(マイナス)全般に適用すべきか�E�E
+        // M-10実裁E��は「借�߁E��Eイナス amount�E��E場合」としてぁE��、E
+        // typeパラメータが来た�Eで、�E示皁E��LOAN以外でも�EイナスならチェチE��する方針�E維持しつつ、E
         // ログは正確に残す、E
         if (amount < 0 && data.money + amount < 0) {
             const DAILY_LOAN_LIMIT = 10000;
             const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-            // 日付が変わってぁE��らリセチE��
+            // 日付が変わってぁE��らリセチE��
             if (data.lastLoanDate !== today) {
                 data.lastLoanDate = today;
                 data.todayLoanAmount = 0;
             }
 
-            // 実際に借�Eとなる増�Eだけを計箁E
+            // 実際に借�Eとなる増�Eだけを計箁E
             const prevDebt = Math.max(0, -data.money);
             const nextDebt = Math.max(0, -(data.money + amount));
             const actualLoan = Math.max(0, nextDebt - prevDebt);
@@ -221,11 +221,11 @@ export async function transactMoney(
                 const remaining = DAILY_LOAN_LIMIT - (data.todayLoanAmount || 0);
                 return {
                     success: false,
-                    error: `本日の借�E限度額を趁E��てぁE��ぁE(残り: ${Math.max(0, remaining).toLocaleString()}G / 上限: ${DAILY_LOAN_LIMIT.toLocaleString()}G)`
+                    error: `本日の借�E限度額を趁E��てぁE��ぁE(残り: ${Math.max(0, remaining).toLocaleString()}G / 上限: ${DAILY_LOAN_LIMIT.toLocaleString()}G)`
                 };
             }
 
-            // 借�E額を記録
+            // 借�E額を記録
             data.todayLoanAmount = todayTotal;
         }
 
@@ -261,7 +261,7 @@ export async function transactMoney(
 }
 
 /**
- * アイチE��を購入
+ * アイチE��を購入
  */
 export async function purchaseItem(
     userId: string,
@@ -269,13 +269,13 @@ export async function purchaseItem(
     price: number
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        // 1. お��を引き落とぁE(Transaction Ledger経由)
-        const tx = await transactMoney(userId, -price, `アイチE��購入: ${itemId}`, "ITEM_PURCHASE");
+        // 1. お��を引き落とぁE(Transaction Ledger経由)
+        const tx = await transactMoney(userId, -price, `アイチE��購入: ${itemId}`, "ITEM_PURCHASE");
         if (!tx.success) {
-            return { success: false, error: tx.error || "所持E��が不足してぁE��ぁE };
+            return { success: false, error: tx.error || "所持E��が不足してぁE��ぁE };
         }
 
-        // 2. チE�Eタを�E取得してインベントリ更新 (お��は更新済み)
+        // 2. チE�Eタを�E取得してインベントリ更新 (お��は更新済み)
         const data = await getGameData(userId);
         data.inventory[itemId] = (data.inventory[itemId] || 0) + 1;
 
@@ -326,7 +326,7 @@ export async function activateBooster(
 }
 
 /**
- * チE��リーログインボ�Eナス
+ * チE��リーログインボ�Eナス
  */
 export async function claimDailyBonus(
     userId: string
@@ -346,7 +346,7 @@ export async function claimDailyBonus(
             return { success: true, already: true };
         }
 
-        // 連続ログインチェチE��
+        // 連続ログインチェチE��
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split("T")[0];
@@ -360,7 +360,7 @@ export async function claimDailyBonus(
         data.lastDailyBonus = today;
         data.stats.logins++;
 
-        // XP獲得（ストリークボ�Eナス付き�E�E
+        // XP獲得（ストリークボ�Eナス付き�E�E
         const baseXp = XP_REWARDS.daily_login;
         const streakBonus = XP_REWARDS.streak_bonus * Math.min(data.streak, 7);
         const xpGained = baseXp + streakBonus;
@@ -368,22 +368,22 @@ export async function claimDailyBonus(
 
         const moneyGained = Math.min(data.streak, 7) * 10;
 
-        // 所持E��付与を TransactMoney 経由で実衁E(M-12 Ledger対忁E
-        // 先にメモリ上�E日仁Eストリークを更新してから、お金を処琁E��、最後に全て保孁E..
-        // ぁE��、transactMoneyで保存が発生する�Eで、E��E��に注意、E
+        // 所持E��付与を TransactMoney 経由で実衁E(M-12 Ledger対忁E
+        // 先にメモリ上�E日仁Eストリークを更新してから、お金を処琁E��、最後に全て保孁E..
+        // ぁE��、transactMoneyで保存が発生する�Eで、E��E��に注意、E
 
-        // 1. お��以外を先に処琁E��てしまぁE��、transactMoneyで上書きされる可能性がある、E
+        // 1. お��以外を先に処琁E��てしまぁE��、transactMoneyで上書きされる可能性がある、E
         // なので、まずお金を付与、E
-        await transactMoney(userId, moneyGained, "チE��リーボ�Eナス", "DAILY_BONUS");
+        await transactMoney(userId, moneyGained, "チE��リーボ�Eナス", "DAILY_BONUS");
 
-        // 2. チE�Eタを�E取征E(お��更新征E
+        // 2. チE�Eタを�E取征E(お��更新征E
         const updatedData = await getGameData(userId);
 
-        // 3. ストリークなどの惁E��を更新
+        // 3. ストリークなどの惁E��を更新
         updatedData.lastDailyBonus = today;
-        updatedData.stats.logins++; // これは単純加算でよいか！Estreak判定�E允E��ータ`data`で行ったが...
-        // streak判定ロジチE��は変えず、updatedDataに適用する
-        updatedData.streak = data.streak; // 事前に計算したstreak値をセチE��
+        updatedData.stats.logins++; // これは単純加算でよいか！Estreak判定�E允E��ータ`data`で行ったが...
+        // streak判定ロジチE��は変えず、updatedDataに適用する
+        updatedData.streak = data.streak; // 事前に計算したstreak値をセチE��
 
         // XP獲征E
         updatedData.xp += xpGained;
@@ -397,7 +397,7 @@ export async function claimDailyBonus(
 }
 
 /**
- * ランキング取得！EP頁E��E
+ * ランキング取得！EP頁E��E
  */
 export async function getXpRanking(limit: number = 20): Promise<RankingEntry[]> {
     const allData = await db
@@ -428,7 +428,7 @@ export async function getXpRanking(limit: number = 20): Promise<RankingEntry[]> 
 }
 
 /**
- * ランキング取得（所持E��頁E��E
+ * ランキング取得（所持E��頁E��E
  */
 export async function getMoneyRanking(limit: number = 20): Promise<RankingEntry[]> {
     const allData = await db
@@ -475,7 +475,7 @@ export async function updateGameSettings(
 }
 
 /**
- * 残高整合性チェチE�� (Gap M-8対忁E
+ * 残高整合性チェチE�� (Gap M-8対忁E
  * keibaTransactions から残高を再計算し、gameData.money と照吁E
  */
 // 348行目の重複importは削除
@@ -488,7 +488,7 @@ export async function reconcileBalance(
     try {
         const data = await getGameData(userId);
 
-        // M-12: transactionsチE�Eブルから雁E��E
+        // M-12: transactionsチE�Eブルから雁E��E
         const result = await db
             .select({
                 total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
@@ -501,12 +501,12 @@ export async function reconcileBalance(
 
         const calculatedBalance = result.total;
 
-        // レガシーチE�Eタ対忁E INITIAL取引がなく、かつ残高が整合しなぁE��吁E
-        // 取引履歴が途中から始まってぁE��ユーザーへの簡易対忁E
-        // (厳寁E��は「不�E」だが、�E期��10000G + 履歴 と仮定して比輁E��ることも可能)
+        // レガシーチE�Eタ対忁E INITIAL取引がなく、かつ残高が整合しなぁE��吁E
+        // 取引履歴が途中から始まってぁE��ユーザーへの簡易対忁E
+        // (厳寁E��は「不�E」だが、�E期��10000G + 履歴 と仮定して比輁E��ることも可能)
         if ((!result.hasInitial || result.hasInitial === 0) && result.count > 0) {
-            // 履歴はあるが�E期��レコードがなぁE-> 移行ユーザーの可能性
-            // ここでは「不整合」として報告するが、メチE��ージを付丁E
+            // 履歴はあるが�E期��レコードがなぁE-> 移行ユーザーの可能性
+            // ここでは「不整合」として報告するが、メチE��ージを付丁E
             return {
                 success: true,
                 balance: data.money,
@@ -522,7 +522,7 @@ export async function reconcileBalance(
 
         if (mismatch) {
             console.warn(`[reconcileBalance] User ${userId}: mismatch detected. Current: ${currentBalance}, Calculated: ${calculatedBalanceFinal}`);
-            // オプション: 自動修正 (こ�E実裁E��はログのみ)
+            // オプション: 自動修正 (こ�E実裁E��はログのみ)
             // data.money = calculatedBalance;
             // await saveGameData(userId, data);
         }
@@ -536,7 +536,7 @@ export async function reconcileBalance(
 
 
 /**
- * 借��ランキング�E�所持E��マイナス頁E��E
+ * 借��ランキング�E�所持E��マイナス頁E��E
  */
 export async function getDebtRanking(limit: number = 20): Promise<RankingEntry[]> {
     const allData = await db
@@ -567,7 +567,7 @@ export async function getDebtRanking(limit: number = 20): Promise<RankingEntry[]
 }
 
 /**
- * 高額�E当ランキング
+ * 高額�E当ランキング
  */
 export async function getPayoutRanking(limit: number = 20): Promise<RankingEntry[]> {
     const records = await db
