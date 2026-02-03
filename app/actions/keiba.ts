@@ -232,7 +232,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     const myBetsData = await db
         .select()
         .from(keibaTransactions)
-        .where(and(eq(keibaTransactions.raceId, raceId), eq(keibaTransactions.userId, userId)));
+        .where(and(eq(keibaTransactions.raceId, targetRaceId), eq(keibaTransactions.userId, userId)));
 
     const myBets: Bet[] = myBetsData.map((b) => ({
         id: String(b.id),
