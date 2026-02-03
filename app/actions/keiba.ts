@@ -8,7 +8,7 @@
 
 import { db } from "@/lib/db/client";
 import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
-import { eq, desc, and, like } from "drizzle-orm";
+import { eq, desc, and, like, or, gte, lt } from "drizzle-orm";
 import { logActivity } from "./log";
 import type {
     Race,
@@ -28,7 +28,7 @@ import { transactMoney, earnXp, getGameData } from "./game";
 const RACE_SCHEDULE = [
     { h: 9, m: 55 }, { h: 10, m: 55 }, { h: 11, m: 55 }, { h: 12, m: 30 },
     { h: 13, m: 55 }, { h: 14, m: 55 }, { h: 15, m: 55 }, { h: 16, m: 55 },
-    { h: 17, m: 55 }, { h: 21, m: 30 },
+    { h: 17, m: 55 }, { h: 21, m: 30 }, { h: 23, m: 30 }, { h: 23, m: 40 },
 ];
 
 export async function getActiveRace(userId: string): Promise<{ race: Race; myBets: Bet[] }> {
@@ -773,26 +773,41 @@ export async function getTodayRaceResults(): Promise<{
 }[]> {
     try {
         const now = new Date();
-        const jstOffset = 9 * 60 * 60 * 1000;
-        const nowJst = new Date(now.getTime() + jstOffset);
-
-        const y = nowJst.getUTCFullYear();
-        const m = String(nowJst.getUTCMonth() + 1).padStart(2, "0");
-        const d = String(nowJst.getUTCDate()).padStart(2, "0");
+        const jstParts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Tokyo",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(now);
+        const y = jstParts.find(p => p.type === "year")?.value || "1970";
+        const m = jstParts.find(p => p.type === "month")?.value || "01";
+        const d = jstParts.find(p => p.type === "day")?.value || "01";
         const todayPrefix = `${y}${m}${d}_%`;
+        const jstStart = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
+        const jstEnd = new Date(jstStart);
+        jstEnd.setDate(jstEnd.getDate() + 1);
+        const startIso = jstStart.toISOString();
+        const endIso = jstEnd.toISOString();
 
         // まず本日分のレースを取得し、時刻を過ぎたwaitingレースがあれば確定処理を走らせる
         const todayRaces = await db
             .select()
             .from(keibaRaces)
-            .where(like(keibaRaces.id, todayPrefix))
+            .where(or(
+                and(gte(keibaRaces.scheduledAt, startIso), lt(keibaRaces.scheduledAt, endIso)),
+                like(keibaRaces.id, todayPrefix)
+            ))
             .orderBy(desc(keibaRaces.scheduledAt));
 
         for (const r of todayRaces) {
             if (r.status === "waiting" && r.scheduledAt) {
                 const scheduled = new Date(r.scheduledAt);
-                if (now >= scheduled) {
-                    await resolveRace(r.id);
+                if (Number.isFinite(scheduled.getTime()) && now >= scheduled) {
+                    try {
+                        await resolveRace(r.id);
+                    } catch (err) {
+                        console.error(`[getTodayRaceResults] Failed to resolve race ${r.id}:`, err);
+                    }
                 }
             }
         }
@@ -801,7 +816,13 @@ export async function getTodayRaceResults(): Promise<{
         const races = await db
             .select()
             .from(keibaRaces)
-            .where(and(eq(keibaRaces.status, "finished"), like(keibaRaces.id, todayPrefix)))
+            .where(and(
+                eq(keibaRaces.status, "finished"),
+                or(
+                    and(gte(keibaRaces.scheduledAt, startIso), lt(keibaRaces.scheduledAt, endIso)),
+                    like(keibaRaces.id, todayPrefix)
+                )
+            ))
             .orderBy(desc(keibaRaces.scheduledAt));
 
         const output: {
