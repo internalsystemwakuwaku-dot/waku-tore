@@ -76,9 +76,17 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         if (isOpen) {
             fetchRace();
             const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-            return () => clearInterval(timer);
+            const refresh = setInterval(() => {
+                if (phase !== "racing") {
+                    fetchRace();
+                }
+            }, 5000);
+            return () => {
+                clearInterval(timer);
+                clearInterval(refresh);
+            };
         }
-    }, [isOpen, fetchRace]);
+    }, [isOpen, fetchRace, phase]);
 
     useEffect(() => {
         if (tab !== "today" || !isOpen) return;
@@ -361,10 +369,10 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     </div>
                 </div>
 
-                                                                                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
-                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>投票</button>
-                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>結果</button>
-                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>本日の結果</button>
+                                                                                                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
+                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
+                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
+                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>?????</button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
@@ -380,6 +388,17 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => setBetType("WIN")}
+                            {phase !== "betting" && (
+                                <div className="text-gray-400 text-center py-10">
+                                    {phase === "loading" && "?????????..."}
+                                    {phase === "racing" && "??????..."}
+                                    {phase === "result" && "????????????"}
+                                    {phase === "betting" && ""}
+                                    <div className="mt-4">
+                                        <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">??</button>
+                                    </div>
+                                </div>
+                            )}
                                                 className={`px-3 py-1 rounded ${betType === "WIN" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
                                                 単勝
