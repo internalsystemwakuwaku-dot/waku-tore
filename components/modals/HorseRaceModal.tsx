@@ -357,14 +357,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             <div className="text-xs text-gray-400">WALLET</div>
                             <div className="font-mono text-yellow-400">{gameUser.money.toLocaleString()} G</div>
                         </div>
-                        <button onClick={handleClose} className="text-gray-400 hover:text-white">?</button>
+                        <button onClick={handleClose} className="text-gray-400 hover:text-white">✕</button>
                     </div>
                 </div>
 
-                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
-                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
-                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
-                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>?????</button>
+                                                                                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
+                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>投票</button>
+                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>結果</button>
+                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>本日の結果</button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
@@ -523,7 +523,35 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     </div>
                                 </div>
                             )}
-</div>
+
+                            
+                        </>
+                     ) : tab === "race" ? (
+                        <div className="space-y-4">
+                            {phase === "betting" && (
+                                <div className="text-gray-400 text-center py-10">結果はまだ確定していません</div>
+                            )}
+
+{(phase === "racing" || phase === "result") && (
+                                <div className="space-y-4">
+                                    <div className="text-center text-gray-400">
+                                        {phase === "racing" ? "レース進行中..." : "結果確定"}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {horses.map((horse, idx) => (
+                                            <div key={horse.id} className="w-full bg-gray-800 rounded p-2 flex items-center gap-2">
+                                                <div className="w-24 text-xs text-gray-400 truncate">{horse.name}</div>
+                                                <div className="flex-1 bg-gray-700 h-2 rounded overflow-hidden">
+                                                    <div
+                                                        className="h-2 bg-yellow-500/70"
+                                                        style={{ width: `${positions[idx] || 0}%` }}
+                                                    />
+                                                </div>
+                                                <div className="text-xs">{race?.winnerId === horse.id ? "WIN" : "RUN"}</div>
+                                            </div>
+                                        ))}
+                                    </div>
 
                                     {phase === "result" && (
                                         <div className="bg-gray-800/80 rounded p-4 border border-gray-700">
@@ -550,33 +578,6 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     )}
                                 </div>
                             )}
-                        </>
-                     ) : tab === "race" ? (
-                        <div className="space-y-4">
-                            {phase === "betting" && (
-                                <div className="text-gray-400 text-center py-10">?????????????</div>
-                            )}
-
-
-                            {(phase === "racing" || phase === "result") && (
-                                <div className="space-y-4">
-                                    <div className="text-center text-gray-400">
-                                        {phase === "racing" ? "レース進行中..." : "結果確定"}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        {horses.map((horse, idx) => (
-                                            <div key={horse.id} className="w-full bg-gray-800 rounded p-2 flex items-center gap-2">
-                                                <div className="w-24 text-xs text-gray-400 truncate">{horse.name}</div>
-                                                <div className="flex-1 bg-gray-700 h-2 rounded overflow-hidden">
-                                                    <div
-                                                        className="h-2 bg-yellow-500/70"
-                                                        style={{ width: `${positions[idx] || 0}%` }}
-                                                    />
-                                                </div>
-                                                <div className="text-xs">{race?.winnerId === horse.id ? "??" : "??"}</div>
-                                            </div>
-                                        ))}
                         </div>
                     ) : (
                         <div className="space-y-4">
