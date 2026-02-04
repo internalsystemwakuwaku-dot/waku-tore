@@ -25,7 +25,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const [betAmount, setBetAmount] = useState<number>(100);
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
-    const [tab, setTab] = useState<"bet" | "result">("bet");
+    const [tab, setTab] = useState<"bet" | "race" | "today">("bet");
     const [todayResults, setTodayResults] = useState<{
         race: Race;
         results: string[];
@@ -81,7 +81,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [isOpen, fetchRace]);
 
     useEffect(() => {
-        if (tab !== "result" || !isOpen) return;
+        if (tab !== "today" || !isOpen) return;
 
         const fetchResults = () => {
             setResultsLoading(true);
@@ -90,7 +90,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 .then(res => setTodayResults(res))
                 .catch(err => {
                     console.error("[HorseRaceModal] Failed to fetch results:", err);
-                    setResultsError("ÁµêÊûú„ÅÆÂèñÂæó„Å´Â§±Êïó„Åó„Åæ„Åó„Åü");
+                    setResultsError("åãâ ÇÃéÊìæÇ…é∏îsÇµÇ‹ÇµÇΩ");
                     setTodayResults([]);
                 })
                 .finally(() => setResultsLoading(false));
@@ -277,16 +277,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("ÊäïÁ•®„Åó„Åæ„Åó„Åü");
+                alert("ìäï[ÇµÇ‹ÇµÇΩ");
                 setSelectedHorseId(null);
             } else {
                 playSe("cancel");
-                alert(result.error || "ÊäïÁ•®„Å´Â§±Êïó„Åó„Åæ„Åó„Åü");
+                alert(result.error || "ìäï[Ç…é∏îsÇµÇ‹ÇµÇΩ");
             }
         } catch (e) {
             console.error(e);
             playSe("cancel");
-            alert("„Ç®„É©„Éº„ÅåÁô∫Áîü„Åó„Åæ„Åó„Åü");
+            alert("ÉGÉâÅ[Ç™î≠ê∂ÇµÇ‹ÇµÇΩ");
         } finally {
             setIsLoading(false);
         }
@@ -294,7 +294,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     const handleCancelBet = async (betId: string) => {
         if (isLoading) return;
-        if (!confirm("„Åì„ÅÆÊäïÁ•®„Çí„Ç≠„É£„É≥„Çª„É´„Åó„Åæ„Åô„ÅãÔºü")) return;
+        if (!confirm("Ç±ÇÃìäï[ÇÉLÉÉÉìÉZÉãÇµÇ‹Ç∑Ç©ÅH")) return;
 
         setIsLoading(true);
         try {
@@ -311,14 +311,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("„Ç≠„É£„É≥„Çª„É´„Åó„Åæ„Åó„Åü");
+                alert("ÉLÉÉÉìÉZÉãÇµÇ‹ÇµÇΩ");
             } else {
                 playSe("cancel");
-                alert(result.error || "„Ç≠„É£„É≥„Çª„É´„Å´Â§±Êïó„Åó„Åæ„Åó„Åü");
+                alert(result.error || "ÉLÉÉÉìÉZÉãÇ…é∏îsÇµÇ‹ÇµÇΩ");
             }
         } catch (e) {
             console.error(e);
-            alert("„Ç®„É©„Éº„ÅåÁô∫Áîü„Åó„Åæ„Åó„Åü");
+            alert("ÉGÉâÅ[Ç™î≠ê∂ÇµÇ‹ÇµÇΩ");
         } finally {
             setIsLoading(false);
         }
@@ -348,7 +348,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         <h2 className="text-xl font-bold">{race?.name || "Loading..."}</h2>
                         {phase === "betting" && (
                             <p className="text-xs text-gray-400">
-                                Á∑†Âàá„Åæ„Åß {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+                                í˜êÿÇ‹Ç≈ {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
                             </p>
                         )}
                     </div>
@@ -357,16 +357,15 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             <div className="text-xs text-gray-400">WALLET</div>
                             <div className="font-mono text-yellow-400">{gameUser.money.toLocaleString()} G</div>
                         </div>
-                        <button onClick={handleClose} className="text-gray-400 hover:text-white">‚úï</button>
+                        <button onClick={handleClose} className="text-gray-400 hover:text-white">?</button>
                     </div>
                 </div>
 
-                {phase !== "racing" && (
-                    <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
-                        <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>ÊäïÁ•®</button>
-                        <button onClick={() => setTab("result")} className={`flex-1 py-3 font-bold ${tab === "result" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>Êú¨Êó•„ÅÆÁµêÊûú</button>
-                    </div>
-                )}
+                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
+                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
+                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>??</button>
+                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>?????</button>
+                </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
                     {tab === "bet" ? (
@@ -383,13 +382,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 onClick={() => setBetType("WIN")}
                                                 className={`px-3 py-1 rounded ${betType === "WIN" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                ÂçòÂãù
+                                                íPèü
                                             </button>
                                             <button
                                                 onClick={() => setBetType("PLACE")}
                                                 className={`px-3 py-1 rounded ${betType === "PLACE" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                Ë§áÂãù
+                                                ï°èü
                                             </button>
                                         </div>
 
@@ -439,7 +438,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             onClick={() => handleCancelBet(bet.id as string)}
                                                                             className="text-gray-400 hover:text-red-400"
                                                                         >
-                                                                            ÂèñÊ∂à
+                                                                            éÊè¡
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -452,12 +451,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     </div>
 
                                     <div className="bg-gray-800/80 rounded-lg p-4 border border-gray-700 h-fit">
-                                        <h3 className="text-lg font-bold mb-4">ÊäïÁ•®ÂÜÖÂÆπ</h3>
+                                        <h3 className="text-lg font-bold mb-4">ìäï[ì‡óe</h3>
 
                                         {selectedHorseId ? (
                                             <>
                                                 <div className="mb-4">
-                                                    <div className="text-xs text-gray-400">ÈÅ∏Êäû‰∏≠</div>
+                                                    <div className="text-xs text-gray-400">ëIëíÜ</div>
                                                     <div className="font-bold">
                                                         {horses.find(h => h.id === selectedHorseId)?.name}
                                                     </div>
@@ -492,13 +491,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         <span className="font-mono">{betAmount.toLocaleString()} G</span>
                                                     </div>
                                                     <p className="text-xs text-red-400">
-                                                        ÂÄüÂÖ•ÊÆã„Çä (Êú¨Êó•): {remainingLoan.toLocaleString()}G
+                                                        éÿì¸écÇË (ñ{ì˙): {remainingLoan.toLocaleString()}G
                                                     </p>
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700 mt-4">
                                                     <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-gray-400">ÊÉ≥ÂÆöÊâïÊàª</span>
+                                                        <span className="text-gray-400">ëzíËï•ñﬂ</span>
                                                         <span className="text-yellow-400 font-bold">
                                                             {(() => {
                                                                 const selectedHorse = horses.find(h => h.id === selectedHorseId);
@@ -514,37 +513,17 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         disabled={isLoading}
                                                         className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                                     >
-                                                        {isLoading ? "Âá¶ÁêÜ‰∏≠..." : "ÊäïÁ•®„Åô„Çã"}
+                                                        {isLoading ? "èàóùíÜ..." : "ìäï[Ç∑ÇÈ"}
                                                     </button>
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="text-gray-400 text-sm">È¶¨„ÇíÈÅ∏Êäû„Åó„Å¶„Åè„Å†„Åï„ÅÑ</div>
+                                            <div className="text-gray-400 text-sm">înÇëIëÇµÇƒÇ≠ÇæÇ≥Ç¢</div>
                                         )}
                                     </div>
                                 </div>
                             )}
-
-                            {(phase === "racing" || phase === "result") && (
-                                <div className="space-y-4">
-                                    <div className="text-center text-gray-400">
-                                        {phase === "racing" ? "„É¨„Éº„ÇπÈÄ≤Ë°å‰∏≠..." : "ÁµêÊûúÁ¢∫ÂÆö"}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        {horses.map((horse, idx) => (
-                                            <div key={horse.id} className="w-full bg-gray-800 rounded p-2 flex items-center gap-2">
-                                                <div className="w-24 text-xs text-gray-400 truncate">{horse.name}</div>
-                                                <div className="flex-1 bg-gray-700 h-2 rounded overflow-hidden">
-                                                    <div
-                                                        className="h-2 bg-yellow-500/70"
-                                                        style={{ width: `${positions[idx] || 0}%` }}
-                                                    />
-                                                </div>
-                                                <div className="text-xs">{race?.winnerId === horse.id ? "üëë" : "üèá"}</div>
-                                            </div>
-                                        ))}
-                                    </div>
+</div>
 
                                     {phase === "result" && (
                                         <div className="bg-gray-800/80 rounded p-4 border border-gray-700">
@@ -554,9 +533,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     const horse = horses.find(h => h.id === horseId);
                                                     return (
                                                         <div key={horseId} className="flex justify-between">
-                                                            <span>{idx + 1}‰Ωç</span>
+                                                            <span>{idx + 1}à </span>
                                                             <span>{horse?.name || `Horse #${horseId}`}</span>
-                                                            <span>{horse?.odds?.toFixed(1)}ÂÄç</span>
+                                                            <span>{horse?.odds?.toFixed(1)}î{</span>
                                                         </div>
                                                     );
                                                 })}
@@ -572,51 +551,78 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                 </div>
                             )}
                         </>
+                     ) : tab === "race" ? (
+                        <div className="space-y-4">
+                            {phase === "betting" && (
+                                <div className="text-gray-400 text-center py-10">?????????????</div>
+                            )}
+
+
+                            {(phase === "racing" || phase === "result") && (
+                                <div className="space-y-4">
+                                    <div className="text-center text-gray-400">
+                                        {phase === "racing" ? "ÉåÅ[ÉXêiçsíÜ..." : "åãâ ämíË"}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {horses.map((horse, idx) => (
+                                            <div key={horse.id} className="w-full bg-gray-800 rounded p-2 flex items-center gap-2">
+                                                <div className="w-24 text-xs text-gray-400 truncate">{horse.name}</div>
+                                                <div className="flex-1 bg-gray-700 h-2 rounded overflow-hidden">
+                                                    <div
+                                                        className="h-2 bg-yellow-500/70"
+                                                        style={{ width: `${positions[idx] || 0}%` }}
+                                                    />
+                                                </div>
+                                                <div className="text-xs">{race?.winnerId === horse.id ? "??" : "??"}</div>
+                                            </div>
+                                        ))}
+                        </div>
                     ) : (
                         <div className="space-y-4">
-                            <h3 className="text-white font-bold text-lg mb-2">Êú¨Êó•„ÅÆ„É¨„Éº„ÇπÁµêÊûú</h3>
+                            <h3 className="text-white font-bold text-lg mb-2">ñ{ì˙ÇÃÉåÅ[ÉXåãâ </h3>
                             {resultsLoading ? (
-                                <div className="text-gray-400 text-center py-10">ÂèñÂæó‰∏≠...</div>
+                                <div className="text-gray-400 text-center py-10">éÊìæíÜ...</div>
                             ) : resultsError ? (
                                 <div className="text-red-400 text-center py-10">
                                     <p>{resultsError}</p>
                                     <button onClick={() => setTab("bet")} className="mt-4 px-4 py-2 bg-gray-700 rounded">
-                                        Êàª„Çã
+                                        ñﬂÇÈ
                                     </button>
                                 </div>
                             ) : todayResults.length === 0 ? (
-                                <div className="text-gray-500 text-center py-10">Êú¨Êó•„ÅÆÁµêÊûú„ÅØ„Åæ„Å†„ÅÇ„Çä„Åæ„Åõ„Çì</div>
+                                <div className="text-gray-500 text-center py-10">ñ{ì˙ÇÃåãâ ÇÕÇ‹ÇæÇ†ÇËÇ‹ÇπÇÒ</div>
                             ) : (
                                 todayResults.map((r, i) => (
                                     <div key={i} className="bg-gray-800 p-4 rounded border border-gray-700">
                                         <div className="flex justify-between text-xs text-gray-400 mb-2">
                                             <span>{new Date(r.race.startedAt!).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
                                             <span className={r.race.status === "finished" ? "text-green-400" : "text-gray-500"}>
-                                                {r.race.status === "finished" ? "Á¢∫ÂÆö" : r.race.status}
+                                                {r.race.status === "finished" ? "ämíË" : r.race.status}
                                             </span>
                                         </div>
                                         <h4 className="font-bold text-white text-md mb-2">{r.race.name}</h4>
                                         <div className="bg-black/30 p-2 rounded text-sm">
                                             {r.results.slice(0, 3).map((res, j) => (
                                                 <div key={j} className="flex gap-2">
-                                                    <span className="font-bold">{j + 1}‰Ωç</span>
+                                                    <span className="font-bold">{j + 1}à </span>
                                                     <span>{res}</span>
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="mt-3 text-xs text-gray-400">ÈÖçÂΩì„Å®Ë≥ºÂÖ•‰∏ÄË¶ß</div>
+                                        <div className="mt-3 text-xs text-gray-400">îzìñÇ∆çwì¸àÍóó</div>
                                         <div className="mt-2 space-y-2">
                                             {r.bets.length === 0 ? (
-                                                <div className="text-gray-500 text-xs">Ë≥ºÂÖ•ËÄÖ„Å™„Åó</div>
+                                                <div className="text-gray-500 text-xs">çwì¸é“Ç»Çµ</div>
                                             ) : (
                                                 r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-gray-300">User: {b.userId}</span>
-                                                            <span className="text-yellow-300">Êâï„ÅÑÊàª„Åó {b.totalPayout.toLocaleString()}G</span>
+                                                            <span className="text-yellow-300">ï•Ç¢ñﬂÇµ {b.totalPayout.toLocaleString()}G</span>
                                                         </div>
                                                         <div className="text-gray-400">
-                                                            ÊäïÁ•®ÂêàË®à {b.totalBet.toLocaleString()}G
+                                                            ìäï[çáåv {b.totalBet.toLocaleString()}G
                                                         </div>
                                                         <div className="mt-1 space-y-1">
                                                             {b.items.map((it, idx) => (
