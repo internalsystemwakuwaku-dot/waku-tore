@@ -1,9 +1,9 @@
-"use server";
+﻿"use server";
 
 /**
- * 競馬・ガチャ Server Actions
- * - レースはJSTのスケジュールで自動生成
- * - 投票/返金/払戻はトランザクションで整合性を担保
+ * 遶ｶ鬥ｬ繝ｻ繧ｬ繝√Ε Server Actions
+ * - 繝ｬ繝ｼ繧ｹ縺ｯJST縺ｮ繧ｹ繧ｱ繧ｸ繝･繝ｼ繝ｫ縺ｧ閾ｪ蜍慕函謌・
+ * - 謚慕･ｨ/霑秘≡/謇墓綾縺ｯ繝医Λ繝ｳ繧ｶ繧ｯ繧ｷ繝ｧ繝ｳ縺ｧ謨ｴ蜷域ｧ繧呈球菫・
  */
 
 import { db } from "@/lib/db/client";
@@ -304,34 +304,49 @@ export async function placeBet(
                 .then((res) => res[0]);
 
             if (!race) return { success: false, error: "レースが見つかりません" };
-            if (race.status !== "waiting") return { success: false, error: "投票は締め切られました" };
+            if (race.status !== "waiting") return { success: false, error: "賭けは締め切られました" };
 
             const deadline = new Date(race.scheduledAt!);
             deadline.setMinutes(deadline.getMinutes() - 1);
             if (new Date() > deadline) {
-                return { success: false, error: "締切1分前のため投票できません" };
+                return { success: false, error: "締切後のため賭けられません" };
             }
 
             if (!bets || bets.length === 0) {
-                return { success: false, error: "投票内容が空です" };
+                return { success: false, error: "賭け内容が空です" };
             }
             for (const b of bets) {
                 if (!Number.isFinite(b.amount) || b.amount < 100) {
-                    return { success: false, error: "投票金額は100以上で指定してください" };
+                    return { success: false, error: "賭け金は100G以上で指定してください" };
                 }
                 if ((b.type === "WIN" || b.type === "PLACE") && !b.horseId) {
-                    return { success: false, error: "対象の馬が未選択です" };
+                    return { success: false, error: "対象の馬を選択してください" };
+                }
+                if (b.details) {
+                    try {
+                        const details = JSON.parse(b.details);
+                        const tickets: number[][] = Array.isArray(details.tickets) ? details.tickets : [];
+                        const baseAmount = Number(details.baseAmount);
+                        if (tickets.length > 0 && Number.isFinite(baseAmount)) {
+                            const expected = baseAmount * tickets.length;
+                            if (expected !== b.amount) {
+                                return { success: false, error: "賭け金の合計が一致しません" };
+                            }
+                        }
+                    } catch {
+                        return { success: false, error: "賭け情報の形式が不正です" };
+                    }
                 }
             }
 
             const totalAmount = bets.reduce((sum, b) => sum + b.amount, 0);
             if (totalAmount <= 0) {
-                return { success: false, error: "投票金額が不正です" };
+                return { success: false, error: "賭け金が不正です" };
             }
 
-            const txResult = await transactMoney(userId, -totalAmount, `競馬投票: ${race.name}`, "BET", tx);
+            const txResult = await transactMoney(userId, -totalAmount, `遶ｶ鬥ｬ謚慕･ｨ: ${race.name}`, "BET", tx);
             if (!txResult.success) {
-                throw new Error(txResult.error || "投票の処理に失敗しました");
+                throw new Error(txResult.error || "賭け処理に失敗しました");
             }
 
             for (const bet of bets) {
@@ -347,15 +362,14 @@ export async function placeBet(
                 });
             }
 
-            await logActivity(userId, `競馬投票: ${race.name} (計${totalAmount}G)`, null, tx);
+            await logActivity(userId, `競馬ベット: ${race.name} (${totalAmount}G)`, null, tx);
             return { success: true, newBalance: txResult.newBalance };
         });
     } catch (e) {
         console.error("[placeBet] Transaction failed:", e);
-        return { success: false, error: e instanceof Error ? e.message : "投票の処理に失敗しました" };
+        return { success: false, error: e instanceof Error ? e.message : "賭け処理に失敗しました" };
     }
 }
-
 export async function cancelBet(
     userId: string,
     betId: string
@@ -374,7 +388,7 @@ export async function cancelBet(
                 .then((res) => res[0]);
 
             if (!betRecord) {
-                return { success: false, error: "対象の投票が見つかりません" };
+                return { success: false, error: "賭けが見つかりません" };
             }
 
             const race = await tx
@@ -389,32 +403,31 @@ export async function cancelBet(
             }
 
             if (race.status !== "waiting") {
-                return { success: false, error: "レースが開始されたためキャンセルできません" };
+                return { success: false, error: "締切後はキャンセルできません" };
             }
 
             const deadline = new Date(race.scheduledAt!);
             deadline.setMinutes(deadline.getMinutes() - 1);
             if (new Date() > deadline) {
-                return { success: false, error: "締切1分前のためキャンセルできません" };
+                return { success: false, error: "締切後はキャンセルできません" };
             }
 
             await tx.delete(keibaTransactions).where(eq(keibaTransactions.id, Number(betId)));
 
             const refundAmount = betRecord.betAmount;
-            const txResult = await transactMoney(userId, refundAmount, `競馬キャンセル返金: ${race.name}`, "REFUND", tx);
+            const txResult = await transactMoney(userId, refundAmount, `遶ｶ鬥ｬ繧ｭ繝｣繝ｳ繧ｻ繝ｫ霑秘≡: ${race.name}`, "REFUND", tx);
             if (!txResult.success) {
                 throw new Error("返金処理に失敗しました");
             }
 
-            await logActivity(userId, `競馬キャンセル: ${race.name} (返金 ${refundAmount}G)`, null, tx);
+            await logActivity(userId, `競馬キャンセル: ${race.name} (${refundAmount}G)`, null, tx);
             return { success: true, newBalance: txResult.newBalance };
         });
     } catch (e) {
         console.error("[cancelBet] Error:", e);
-        return { success: false, error: e instanceof Error ? e.message : "キャンセル処理に失敗しました" };
+        return { success: false, error: e instanceof Error ? e.message : "キャンセルに失敗しました" };
     }
 }
-
 async function resolveRace(raceId: string) {
     try {
         return await db.transaction(async (tx) => {
@@ -454,6 +467,7 @@ async function resolveRace(raceId: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function processPayouts(raceId: string, ranking: number[], horses: Horse[], tx: any) {
     const queryBuilder = tx || db;
     const bets = await queryBuilder
@@ -466,73 +480,178 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
     const r3 = ranking[2];
     const top3Set = new Set([r1, r2, r3]);
 
+    const horseOdds = new Map<number, number>();
+    for (const h of horses) horseOdds.set(h.id, h.odds || 2.0);
+
+    const horseIds = horses.map(h => h.id);
+    const frameMap: Record<number, number[]> = {
+        1: [horseIds[0], horseIds[1]],
+        2: [horseIds[2], horseIds[3]],
+        3: [horseIds[4], horseIds[5]],
+        4: [horseIds[6], horseIds[7]],
+    };
+    const frameOfHorse = (horseId: number) => {
+        for (const [frame, ids] of Object.entries(frameMap)) {
+            if (ids.includes(horseId)) return Number(frame);
+        }
+        return 0;
+    };
+
+    const typeMultiplier: Record<string, number> = {
+        FRAME: 3,
+        QUINELLA: 5,
+        EXACTA: 10,
+        WIDE: 3,
+        TRIO: 15,
+        TRIFECTA: 50,
+        WIN5: 100,
+    };
+
+    const calcAvgOdds = (ids: number[], isFrame: boolean) => {
+        if (ids.length === 0) return 0;
+        let targets: number[] = [];
+        if (isFrame) {
+            for (const f of ids) {
+                const list = frameMap[f] || [];
+                targets = targets.concat(list);
+            }
+        } else {
+            targets = ids;
+        }
+        if (targets.length === 0) return 0;
+        const sum = targets.reduce((s, id) => s + (horseOdds.get(id) || 2.0), 0);
+        return sum / targets.length;
+    };
+
+    const isWinForTicket = (betType: string, ticket: number[], isFrame: boolean) => {
+        if (betType === "WIN") {
+            return ticket[0] === r1;
+        }
+        if (betType === "PLACE") {
+            return ticket[0] && top3Set.has(ticket[0]);
+        }
+        if (betType === "FRAME") {
+            const f1 = frameOfHorse(r1);
+            const f2 = frameOfHorse(r2);
+            const t1 = ticket[0];
+            const t2 = ticket[1];
+            return (t1 === f1 && t2 === f2) || (t1 === f2 && t2 === f1);
+        }
+        if (betType === "QUINELLA") {
+            const t1 = ticket[0];
+            const t2 = ticket[1];
+            return (t1 === r1 && t2 === r2) || (t1 === r2 && t2 === r1);
+        }
+        if (betType === "EXACTA") {
+            return ticket[0] === r1 && ticket[1] === r2;
+        }
+        if (betType === "WIDE") {
+            return ticket.length >= 2 && top3Set.has(ticket[0]) && top3Set.has(ticket[1]);
+        }
+        if (betType === "TRIO") {
+            const betSet = new Set(ticket.slice(0, 3));
+            return betSet.has(r1) && betSet.has(r2) && betSet.has(r3);
+        }
+        if (betType === "TRIFECTA") {
+            return ticket[0] === r1 && ticket[1] === r2 && ticket[2] === r3;
+        }
+        return false;
+    };
+
+    const getWin5Winners = async (baseDate: string) => {
+        const y = baseDate.slice(0, 4);
+        const m = baseDate.slice(4, 6);
+        const d = baseDate.slice(6, 8);
+        const ids = RACE_SCHEDULE.slice(0, 5).map(s => {
+            const hh = String(s.h).padStart(2, "0");
+            const mm = String(s.m).padStart(2, "0");
+            return `${y}${m}${d}_${hh}${mm}`;
+        });
+        const races = await queryBuilder
+            .select()
+            .from(keibaRaces)
+            .where(or(...ids.map(id => eq(keibaRaces.id, id))));
+        const byId = new Map<string, typeof keibaRaces.$inferSelect>(
+            races.map((r: typeof keibaRaces.$inferSelect) => [r.id, r])
+        );
+        const winners: number[] = [];
+        for (const id of ids) {
+            const r = byId.get(id);
+            if (!r || r.status !== "finished" || !r.resultsJson) return null;
+            try {
+                const ranking = JSON.parse(r.resultsJson) as number[];
+                winners.push(ranking[0]);
+            } catch {
+                return null;
+            }
+        }
+        return winners;
+    };
+
     for (const bet of bets) {
         if (bet.payout > 0 || bet.isWin) continue;
 
         let isWin = false;
         let payout = 0;
 
-        let betHorses: number[] = [];
+        const betType = (bet.type || "WIN").toUpperCase();
         let betOdds: number | null = null;
+        let tickets: number[][] = [];
+        let baseAmount = 0;
+
         if (bet.details) {
             try {
                 const details = JSON.parse(bet.details);
-                betHorses = details.horses || [];
                 if (typeof details.odds === "number" && details.odds > 0) {
                     betOdds = details.odds;
                 }
+                if (Array.isArray(details.tickets)) {
+                    tickets = details.tickets;
+                }
+                if (Number.isFinite(details.baseAmount)) {
+                    baseAmount = Number(details.baseAmount);
+                }
             } catch { }
         }
-        if (bet.horseId && betHorses.length === 0) {
-            betHorses = [bet.horseId];
+
+        if (tickets.length === 0) {
+            if (bet.horseId) tickets = [[bet.horseId]];
         }
 
-        const betType = (bet.type || "WIN").toUpperCase();
+        if (!baseAmount) {
+            baseAmount = tickets.length > 0 ? Math.floor(bet.betAmount / tickets.length) : bet.betAmount;
+        }
 
-        if (betType === "WIN" || betType === "TANSHO" || betType === "単勝") {
-            if (betHorses[0] === r1) {
+        if (betType === "WIN5") {
+            const dateKey = raceId.slice(0, 8);
+            const fifthId = `${dateKey}_${String(RACE_SCHEDULE[4].h).padStart(2, "0")}${String(RACE_SCHEDULE[4].m).padStart(2, "0")}`;
+            if (raceId !== fifthId) continue;
+            const winners = await getWin5Winners(dateKey);
+            if (!winners || tickets.length === 0) continue;
+            const ticket = tickets[0];
+            if (ticket.length === 5 && ticket.every((v, idx) => v === winners[idx])) {
                 isWin = true;
-                const horse = horses.find(h => h.id === r1);
-                const effectiveOdds = betOdds !== null ? betOdds : (horse?.odds || 2.0);
-                payout = Math.floor(bet.betAmount * effectiveOdds);
+                payout = Math.floor(baseAmount * (typeMultiplier.WIN5 || 100));
             }
-        } else if (betType === "PLACE" || betType === "FUKUSHO" || betType === "複勝") {
-            if (betHorses[0] && top3Set.has(betHorses[0])) {
+        } else {
+            const isFrame = betType === "FRAME";
+            for (const ticket of tickets) {
+                if (!isWinForTicket(betType, ticket, isFrame)) continue;
                 isWin = true;
-                const horse = horses.find(h => h.id === betHorses[0]);
-                const effectiveOdds = betOdds !== null ? betOdds : Math.max(1.0, (horse?.odds || 3.0) / 3);
-                payout = Math.floor(bet.betAmount * effectiveOdds);
-            }
-        } else if (betType === "UMAREN" || betType === "QUINELLA" || betType === "馬連") {
-            if (betHorses.length >= 2) {
-                const h1 = betHorses[0];
-                const h2 = betHorses[1];
-                if ((h1 === r1 && h2 === r2) || (h1 === r2 && h2 === r1)) {
-                    isWin = true;
-                    const effectiveOdds = betOdds !== null ? betOdds : 5.0;
-                    payout = Math.floor(bet.betAmount * effectiveOdds);
+                if (betType === "WIN") {
+                    const horse = horses.find(h => h.id === ticket[0]);
+                    const effectiveOdds = betOdds !== null ? betOdds : (horse?.odds || 2.0);
+                    payout += Math.floor(baseAmount * effectiveOdds);
+                } else if (betType === "PLACE") {
+                    const horse = horses.find(h => h.id === ticket[0]);
+                    const effectiveOdds = betOdds !== null ? betOdds : Math.max(1.0, (horse?.odds || 3.0) / 3);
+                    payout += Math.floor(baseAmount * effectiveOdds);
+                } else {
+                    const avgOdds = calcAvgOdds(ticket, isFrame);
+                    const mult = typeMultiplier[betType] || 1;
+                    const effectiveOdds = betOdds !== null ? betOdds : avgOdds * mult;
+                    payout += Math.floor(baseAmount * effectiveOdds);
                 }
-            }
-        } else if (betType === "UMATAN" || betType === "EXACTA" || betType === "馬単") {
-            if (betHorses.length >= 2 && betHorses[0] === r1 && betHorses[1] === r2) {
-                isWin = true;
-                const effectiveOdds = betOdds !== null ? betOdds : 10.0;
-                payout = Math.floor(bet.betAmount * effectiveOdds);
-            }
-        } else if (betType === "SANRENPUKU" || betType === "TRIO" || betType === "三連複") {
-            if (betHorses.length >= 3) {
-                const betSet = new Set(betHorses.slice(0, 3));
-                if (betSet.has(r1) && betSet.has(r2) && betSet.has(r3)) {
-                    isWin = true;
-                    const effectiveOdds = betOdds !== null ? betOdds : 15.0;
-                    payout = Math.floor(bet.betAmount * effectiveOdds);
-                }
-            }
-        } else if (betType === "SANRENTAN" || betType === "TRIFECTA" || betType === "三連単") {
-            if (betHorses.length >= 3 && betHorses[0] === r1 && betHorses[1] === r2 && betHorses[2] === r3) {
-                isWin = true;
-                const effectiveOdds = betOdds !== null ? betOdds : 50.0;
-                payout = Math.floor(bet.betAmount * effectiveOdds);
             }
         }
 
@@ -545,12 +664,11 @@ async function processPayouts(raceId: string, ranking: number[], horses: Horse[]
 
             if (updated.length === 0) continue;
 
-            await transactMoney(bet.userId, payout, `競馬払戻 ${raceId} (${bet.type})`, "PAYOUT", tx);
+            await transactMoney(bet.userId, payout, `遶ｶ鬥ｬ謇墓綾 ${raceId} (${bet.type})`, "PAYOUT", tx);
             await earnXp(bet.userId, "race_win", 1, tx);
         }
     }
 }
-
 function determineRanking(horses: Horse[]): number[] {
     let candidates = [...horses];
     const ranking: number[] = [];
@@ -600,7 +718,7 @@ export async function getKeibaHistory(
     }));
 }
 
-// ========== ガチャ ==========
+// ========== 繧ｬ繝√Ε ==========
 
 export async function pullGacha(
     userId: string,
@@ -614,7 +732,7 @@ export async function pullGacha(
     const discountRate = getGachaDiscountRate(inventory, activeBoosts);
     const totalCost = Math.floor(pool.cost * count * discountRate);
 
-    const deductResult = await transactMoney(userId, -totalCost, "ガチャ", "GACHA");
+    const deductResult = await transactMoney(userId, -totalCost, "繧ｬ繝√Ε", "GACHA");
     if (!deductResult.success) {
         return { success: false, error: deductResult.error };
     }
@@ -651,14 +769,14 @@ export async function pullGacha(
             });
 
             await earnXp(userId, "gacha_play");
-            await logActivity(userId, `ガチャ獲得: ${item.name} (${item.rarity})`);
+            await logActivity(userId, `繧ｬ繝√Ε迯ｲ蠕・ ${item.name} (${item.rarity})`);
             await applyGachaItemEffect(userId, item);
         }
 
         return { success: true, results };
     } catch (e) {
         console.error("pullGacha error:", e);
-        return { success: false, error: "ガチャ処理に失敗しました" };
+        return { success: false, error: "繧ｬ繝√Ε蜃ｦ逅・↓螟ｱ謨励＠縺ｾ縺励◆" };
     }
 }
 
@@ -679,9 +797,9 @@ export async function getGachaHistory(limit: number = 50): Promise<GachaRecord[]
 }
 
 function generateRaceName(): string {
-    const prefixes = ["朝日", "秋華", "桜花", "皐月", "天皇"];
+    const prefixes = ["霧島", "大河", "蒼天", "烈火", "雷鳴"];
     const numbers = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-    const types = ["記念", "スプリント", "マイルC", "グランプリ", "ダービー"];
+    const types = ["ステークス", "スプリント", "マイルC", "グランプリ", "ダービー"];
 
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     const number = numbers[Math.floor(Math.random() * numbers.length)];
@@ -715,7 +833,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         };
         const amount = amounts[item.id] || 0;
         if (amount > 0) {
-            await transactMoney(userId, amount, `ガチャ獲得: ${item.name}`, "GACHA_ITEM");
+            await transactMoney(userId, amount, `繧ｬ繝√Ε迯ｲ蠕・ ${item.name}`, "GACHA_ITEM");
         }
     }
 
@@ -808,7 +926,7 @@ export async function getTodayRaceResults(): Promise<{
         const startIso = jstStart.toISOString();
         const endIso = jstEnd.toISOString();
 
-        // まず本日分のレースを取得し、時刻を過ぎたwaitingレースがあれば確定処理を走らせる
+        // 縺ｾ縺壽悽譌･蛻・・繝ｬ繝ｼ繧ｹ繧貞叙蠕励＠縲∵凾蛻ｻ繧帝℃縺弱◆waiting繝ｬ繝ｼ繧ｹ縺後≠繧後・遒ｺ螳壼・逅・ｒ襍ｰ繧峨○繧・
         const todayRaces = await db
             .select()
             .from(keibaRaces)
@@ -831,7 +949,7 @@ export async function getTodayRaceResults(): Promise<{
             }
         }
 
-        // 確定済みを再取得
+        // 遒ｺ螳壽ｸ医∩繧貞・蜿門ｾ・
         const races = await db
             .select()
             .from(keibaRaces)
@@ -869,10 +987,10 @@ export async function getTodayRaceResults(): Promise<{
                 const horses = JSON.parse(r.horsesJson) as Horse[];
                 results = resultIds.map(hid => {
                     const h = horses.find(h => h.id === hid);
-                    return h ? `${h.name} (${h.odds.toFixed(1)}倍)` : `ID:${hid}`;
+                    return h ? `${h.name} (${h.odds.toFixed(1)}蛟・` : `ID:${hid}`;
                 });
             } catch {
-                results = ["結果の取得に失敗しました"];
+                results = ["邨先棡縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆"];
             }
 
             const betRows = await db
