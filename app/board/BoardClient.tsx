@@ -266,22 +266,8 @@ export function BoardClient({ user }: BoardClientProps) {
                         </button>
 
                         {/* ショップ */}
-                        <button
-                            onClick={() => setShowShopModal(true)}
-                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="ショップ"
-                        >
-                            🛒
-                        </button>
 
                         {/* 競馬 */}
-                        <button
-                            onClick={() => setShowHorseRaceModal(true)}
-                            className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="競馬"
-                        >
-                            🐎
-                        </button>
 
                         {/* おみくじ */}
                         <button

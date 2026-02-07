@@ -233,15 +233,21 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue, disabled }: Car
                 <div className="mt-3 flex gap-2">
                     <button
                         onClick={(e) => { e.stopPropagation(); setViewingDescriptionCard(card.id); }}
-                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
                     >
-                        <span>📝</span> 説明詳細
+                        ????
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setEditingCard(card.id, "move"); }}
+                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
+                    >
+                        ??
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setEditingCard(card.id); }}
-                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                        className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
                     >
-                        <span>⚙️</span> 設定
+                        ??
                     </button>
                 </div>
             </div>

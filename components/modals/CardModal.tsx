@@ -22,10 +22,12 @@ const SYSTEM_TYPE_OPTIONS = [
 const CONSTRUCTION_NUMBER_OPTIONS = ["(未設定)", ...Array.from({ length: 50 }, (_, i) => String(i + 1))];
 
 export function CardModal({ card, userId, onClose, onOpenLog }: CardModalProps) {
-    const { data } = useBoardStore();
+    const { data, ui } = useBoardStore();
     const [roles, setRoles] = useState<CardRoles>(card.roles);
     const [isSaving, setIsSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<"assignment" | "info" | "memo" | "move">("assignment");
+    const [activeTab, setActiveTab] = useState<"assignment" | "info" | "memo" | "move">(
+        ui.editingCardTab ?? "assignment"
+    );
 
     // メモの状態
     const [memos, setMemos] = useState<Memo[]>([]);
@@ -68,6 +70,10 @@ export function CardModal({ card, userId, onClose, onOpenLog }: CardModalProps) 
             fetchMemos();
         }
     }, [activeTab, card.id]);
+
+    useEffect(() => {
+        setActiveTab(ui.editingCardTab ?? "assignment");
+    }, [card.id, ui.editingCardTab]);
 
     // メモ追加
     const handleAddMemo = async () => {

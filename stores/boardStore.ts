@@ -63,7 +63,7 @@ interface BoardStore {
     lockAllLists: () => void;
     unlockAllLists: () => void;
     setSidebarType: (type: UIState["sidebarType"]) => void;
-    setEditingCard: (cardId: string | null) => void;
+    setEditingCard: (cardId: string | null, tab?: UIState["editingCardTab"]) => void;
     setViewingDescriptionCard: (cardId: string | null) => void;
     setOverdueCardIds: (ids: string[]) => void;
 
@@ -92,6 +92,7 @@ const initialUI: UIState = {
     unlockedListIds: new Set(),
     sidebarType: null,
     editingCardId: null,
+    editingCardTab: null,
     viewingDescriptionCardId: null,
     overdueCardIds: new Set(),
 };
@@ -194,9 +195,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
             ui: { ...state.ui, sidebarType: sidebarType },
         })),
 
-    setEditingCard: (cardId) =>
+    setEditingCard: (cardId, tab) =>
         set((state) => ({
-            ui: { ...state.ui, editingCardId: cardId },
+            ui: {
+                ...state.ui,
+                editingCardId: cardId,
+                editingCardTab: cardId ? (tab ?? null) : null,
+            },
         })),
 
     setViewingDescriptionCard: (cardId) =>
