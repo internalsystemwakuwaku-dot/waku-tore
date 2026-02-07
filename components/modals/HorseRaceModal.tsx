@@ -429,8 +429,6 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         }
     };
 
-    if (!isOpen) return null;
-
     const horses = race?.horses || [];
     const scheduledTime = race?.startedAt ? new Date(race.startedAt) : null;
     const timeDiff = scheduledTime ? Math.max(0, Math.floor((scheduledTime.getTime() - currentTime.getTime()) / 1000)) : 0;
@@ -603,6 +601,8 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             setBetAmount(maxBetAmount);
         }
     }, [betAmount, maxBetAmount]);
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
