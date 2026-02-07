@@ -22,9 +22,13 @@
 [data-theme="dark"] {
   --primary-color: #7aa2c9;
   --bg-color: #0f172a;
+  --bg-primary: #101b2e;
+  --bg-secondary: #0f172a;
   --card-bg: rgba(30, 41, 59, 0.62);
   --text-color: #e6edf6;
   --sub-text: #c7d2e1;
+  --text-primary: #e6edf6;
+  --text-secondary: #c7d2e1;
   --list-bg: rgba(13, 19, 32, 0.68);
   --border-color: rgba(255, 255, 255, 0.1);
   --header-bg: rgba(13, 19, 32, 0.82);
@@ -36,6 +40,9 @@
   --card-shadow: 0 32px 80px rgba(0, 0, 0, 0.58);
   --card-blur: blur(10px);
   --glow-1: 0 0 16px rgba(122, 162, 201, 0.2);
+  --surface-1: rgba(30, 41, 59, 0.62);
+  --surface-2: rgba(15, 23, 42, 0.72);
+  --surface-3: rgba(26, 35, 52, 0.8);
 }
 
 /* Cat */
@@ -269,6 +276,56 @@ body > * {
     linear-gradient(90deg, rgba(122, 162, 201, 0.05) 1px, transparent 1px);
   background-size: 24px 24px, 34px 34px;
   opacity: var(--pattern-opacity);
+}
+
+/* Dark theme hard overrides for utility classes */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-gray-50 {
+  background-color: var(--surface-1) !important;
+}
+
+[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--surface-2) !important;
+}
+
+[data-theme="dark"] .bg-gray-200,
+[data-theme="dark"] .bg-gray-300 {
+  background-color: var(--surface-3) !important;
+}
+
+[data-theme="dark"] .border-gray-50,
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300,
+[data-theme="dark"] .border-gray-400 {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-gray-700 {
+  color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-400 {
+  color: var(--sub-text) !important;
+}
+
+[data-theme="dark"] .shadow,
+[data-theme="dark"] .shadow-sm,
+[data-theme="dark"] .shadow-md,
+[data-theme="dark"] .shadow-lg,
+[data-theme="dark"] .shadow-xl {
+  box-shadow: var(--card-shadow) !important;
+}
+
+[data-theme="dark"] .backdrop-blur,
+[data-theme="dark"] .backdrop-blur-sm,
+[data-theme="dark"] .backdrop-blur-md,
+[data-theme="dark"] .backdrop-blur-lg {
+  backdrop-filter: var(--card-blur);
 }
 
 [data-theme="cat"] body::before {
