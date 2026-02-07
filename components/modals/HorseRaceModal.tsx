@@ -408,7 +408,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             <div className="text-xs text-gray-400">WALLET</div>
                             <div className="font-mono text-yellow-400">{gameUser.money.toLocaleString()} G</div>
                         </div>
-                        <button onClick={handleClose} className="text-gray-400 hover:text-white">笨・/button>
+                        <button onClick={handleClose} className="text-gray-400 hover:text-white">×</button>
                     </div>
                 </div>
 
