@@ -519,8 +519,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         const formC = isFrameType ? formationFrameC : formationC;
 
         if (betMethod === "normal") {
-            if (pickNormal.length !== selectionSize) return [];
-            const ticket = isOrderedType ? pickNormal : uniqueSorted(pickNormal);
+            if (pickNormal.length < selectionSize) return [];
+            const picked = pickNormal.slice(-selectionSize);
+            const ticket = isOrderedType ? picked : uniqueSorted(picked);
             return [ticket];
         }
         if (betMethod === "box") {
