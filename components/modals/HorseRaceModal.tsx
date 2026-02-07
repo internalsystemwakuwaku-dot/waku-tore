@@ -624,9 +624,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     const horse = horses.find(h => h.id === horseId);
                                                     return (
                                                         <div key={horseId} className="flex justify-between">
-                                                            <span>{idx + 1}菴・/span>
+                                                            <span>{idx + 1}位</span>
                                                             <span>{horse?.name || `Horse #${horseId}`}</span>
-                                                            <span>{horse?.odds?.toFixed(1)}蛟・/span>
+                                                            <span>{horse?.odds?.toFixed(1)}倍</span>
                                                         </div>
                                                     );
                                                 })}
@@ -679,14 +679,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                         <div className="flex justify-between text-xs text-gray-400 mb-2">
                                             <span>{new Date(r.race.startedAt!).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
                                             <span className={r.race.status === "finished" ? "text-green-400" : "text-gray-500"}>
-                                                {r.race.status === "finished" ? "遒ｺ螳・ : r.race.status}
+                                                {r.race.status === "finished" ? "終了" : r.race.status}
                                             </span>
                                         </div>
                                         <h4 className="font-bold text-white text-md mb-2">{r.race.name}</h4>
                                         <div className="bg-black/30 p-2 rounded text-sm">
                                             {r.results.slice(0, 3).map((res, j) => (
                                                 <div key={j} className="flex gap-2">
-                                                    <span className="font-bold">{j + 1}菴・/span>
+                                                    <span className="font-bold">{j + 1}位</span>
                                                     <span>{res}</span>
                                                 </div>
                                             ))}
@@ -694,7 +694,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                         <div className="mt-3 text-xs text-gray-400">驟榊ｽ薙→雉ｼ蜈･荳隕ｧ</div>
                                         <div className="mt-2 space-y-2">
                                             {r.bets.length === 0 ? (
-                                                <div className="text-gray-500 text-xs">雉ｼ蜈･閠・↑縺・/div>
+                                                <div className="text-gray-500 text-xs">該当ユーザーなし</div>
                                             ) : (
                                                 r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
