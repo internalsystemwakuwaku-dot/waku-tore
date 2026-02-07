@@ -1,348 +1,497 @@
-/**
- * テーマシステム - GASの11テーマを再現
- */
-
-/* =========================================
-   デフォルトテーマ（ライト）
-   ========================================= */
+/* Theme tokens */
 :root,
 [data-theme="default"] {
-    --primary-color: #0079bf;
-    --bg-color: #f4f5f7;
-    --card-bg: #ffffff;
-    --text-color: #172b4d;
-    --sub-text: #5e6c84;
-    --list-bg: #ebecf0;
-    --border-color: #dfe1e6;
-    --header-bg: #ffffff;
-    --input-bg: #fafbfc;
+  --primary-color: #1b6cff;
+  --bg-color: #f6f7fb;
+  --card-bg: #ffffff;
+  --text-color: #14213d;
+  --sub-text: #4a5668;
+  --list-bg: #eef1f6;
+  --border-color: #dbe1ec;
+  --header-bg: rgba(255, 255, 255, 0.86);
+  --input-bg: #f9fbff;
+  --accent-1: #1b6cff;
+  --accent-2: #26d3b3;
+  --accent-3: #ffb703;
+  --pattern-opacity: 0.1;
+  --card-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --card-blur: blur(10px);
 }
 
-/* =========================================
-   ダークモード
-   ========================================= */
+/* Dark */
 [data-theme="dark"] {
-    --primary-color: #5ba4cf;
-    --bg-color: #1d2125;
-    --card-bg: #22272b;
-    --text-color: #b6c2cf;
-    --sub-text: #9fadbc;
-    --list-bg: #101204;
-    --border-color: #3b4249;
-    --header-bg: #1d2125;
-    --input-bg: #22272b;
+  --primary-color: #6ee7ff;
+  --bg-color: #0c111b;
+  --card-bg: rgba(18, 26, 41, 0.92);
+  --text-color: #e6edf6;
+  --sub-text: #9fb0c7;
+  --list-bg: rgba(12, 18, 30, 0.9);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --header-bg: rgba(9, 14, 25, 0.92);
+  --input-bg: rgba(16, 23, 36, 0.9);
+  --accent-1: #6ee7ff;
+  --accent-2: #7c4dff;
+  --accent-3: #3dd68c;
+  --pattern-opacity: 0.12;
+  --card-shadow: 0 22px 50px rgba(2, 6, 23, 0.6);
+  --card-blur: blur(12px);
 }
 
-/* =========================================
-   猫モード 🐱
-   ========================================= */
+/* Cat */
 [data-theme="cat"] {
-    --primary-color: #ff85a2;
-    --bg-color: #fff0f5;
-    --card-bg: #ffffff;
-    --text-color: #5d4037;
-    --sub-text: #9e8279;
-    --list-bg: #ffe4e1;
-    --border-color: #ffcdd2;
-    --header-bg: #ffffff;
-    --input-bg: #fffbf0;
+  --primary-color: #ff5fa2;
+  --bg-color: #fff6fb;
+  --card-bg: #ffffff;
+  --text-color: #4c2c3c;
+  --sub-text: #8a6577;
+  --list-bg: #ffe5f1;
+  --border-color: #ffc6dc;
+  --header-bg: rgba(255, 255, 255, 0.92);
+  --input-bg: #fff9fc;
+  --accent-1: #ff5fa2;
+  --accent-2: #ffb5d8;
+  --accent-3: #ffd166;
+  --pattern-opacity: 0.18;
+  --card-shadow: 0 20px 36px rgba(255, 95, 162, 0.2);
+  --card-blur: blur(8px);
 }
 
-[data-theme="cat"]::after {
-    content: "🐱";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.4;
-    z-index: 0;
-    pointer-events: none;
-}
-
-/* =========================================
-   犬モード 🐶
-   ========================================= */
+/* Dog */
 [data-theme="dog"] {
-    --primary-color: #fb8c00;
-    --bg-color: #fff8e1;
-    --card-bg: #ffffff;
-    --text-color: #3e2723;
-    --sub-text: #6d4c41;
-    --list-bg: #ffe0b2;
-    --border-color: #ffe082;
-    --header-bg: #fffde7;
-    --input-bg: #ffffff;
+  --primary-color: #ff8a00;
+  --bg-color: #fff2dd;
+  --card-bg: #fff8ef;
+  --text-color: #3f2a1b;
+  --sub-text: #6c4a31;
+  --list-bg: #ffe5c0;
+  --border-color: #ffd08a;
+  --header-bg: rgba(255, 247, 234, 0.95);
+  --input-bg: #fff4e5;
+  --accent-1: #ff8a00;
+  --accent-2: #ffb347;
+  --accent-3: #7cc3ff;
+  --pattern-opacity: 0.16;
+  --card-shadow: 0 18px 34px rgba(255, 138, 0, 0.18);
+  --card-blur: blur(8px);
 }
 
-[data-theme="dog"]::after {
-    content: "🐶";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.4;
-    z-index: 0;
-    pointer-events: none;
-}
-
-/* =========================================
-   馬モード（競馬風） 🏇
-   ========================================= */
+/* Horse */
 [data-theme="horse"] {
-    --primary-color: #0b4d2c;
-    --bg-color: #f4f1ea;
-    --card-bg: #fffbf0;
-    --text-color: #2d1b0e;
-    --sub-text: #634f3d;
-    --list-bg: #e6dfcf;
-    --border-color: #8b5e3c;
-    --header-bg: #1a1a1a;
-    --input-bg: #fdfcf8;
+  --primary-color: #2c6e49;
+  --bg-color: #f6efe4;
+  --card-bg: #fff8ee;
+  --text-color: #2c1c10;
+  --sub-text: #6a513f;
+  --list-bg: #e9dfcf;
+  --border-color: #c1a483;
+  --header-bg: rgba(24, 20, 16, 0.94);
+  --input-bg: #fffdf8;
+  --accent-1: #2c6e49;
+  --accent-2: #b56a1f;
+  --accent-3: #f4d35e;
+  --pattern-opacity: 0.22;
+  --card-shadow: 0 22px 46px rgba(74, 44, 22, 0.22);
+  --card-blur: blur(8px);
 }
 
-[data-theme="horse"]::after {
-    content: "🐎";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 80px;
-    opacity: 0.5;
-    z-index: 0;
-    pointer-events: none;
-    animation: gallop 2s ease-in-out infinite alternate;
-}
-
-@keyframes gallop {
-    0% {
-        transform: translateY(0);
-    }
-
-    100% {
-        transform: translateY(-15px);
-    }
-}
-
-/* =========================================
-   ドラゴンモード 🐉
-   ========================================= */
+/* Dragon */
 [data-theme="dragon"] {
-    --primary-color: #d32f2f;
-    --bg-color: #263238;
-    --card-bg: #37474f;
-    --text-color: #eceff1;
-    --sub-text: #b0bec5;
-    --list-bg: #1c2529;
-    --border-color: #455a64;
-    --header-bg: #263238;
-    --input-bg: #37474f;
+  --primary-color: #ff4242;
+  --bg-color: #14080a;
+  --card-bg: rgba(44, 14, 20, 0.94);
+  --text-color: #ffe7e7;
+  --sub-text: #f1b7b7;
+  --list-bg: rgba(25, 7, 12, 0.92);
+  --border-color: rgba(255, 110, 110, 0.2);
+  --header-bg: rgba(16, 7, 10, 0.95);
+  --input-bg: rgba(37, 11, 16, 0.92);
+  --accent-1: #ff4242;
+  --accent-2: #ffb100;
+  --accent-3: #6bff9a;
+  --pattern-opacity: 0.16;
+  --card-shadow: 0 22px 44px rgba(255, 66, 66, 0.2);
+  --card-blur: blur(10px);
 }
 
-[data-theme="dragon"]::after {
-    content: "🐉";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.4;
-    z-index: 0;
-    pointer-events: none;
-    filter: drop-shadow(0 0 5px #d32f2f);
-}
-
-/* =========================================
-   ネオンモード 🌃
-   ========================================= */
+/* Neon */
 [data-theme="neon"] {
-    --primary-color: #00fff9;
-    --bg-color: #0a0a12;
-    --card-bg: #12121a;
-    --text-color: #e0e0e0;
-    --sub-text: #a0a0b0;
-    --list-bg: #1a1a24;
-    --border-color: #333344;
-    --header-bg: #0f0f18;
-    --input-bg: #12121a;
+  --primary-color: #00f0ff;
+  --bg-color: #080812;
+  --card-bg: rgba(12, 14, 26, 0.95);
+  --text-color: #e9f7ff;
+  --sub-text: #93a6c3;
+  --list-bg: rgba(10, 12, 22, 0.92);
+  --border-color: rgba(0, 240, 255, 0.22);
+  --header-bg: rgba(6, 8, 16, 0.96);
+  --input-bg: rgba(10, 12, 22, 0.95);
+  --accent-1: #00f0ff;
+  --accent-2: #ff2eea;
+  --accent-3: #7cff00;
+  --pattern-opacity: 0.16;
+  --card-shadow: 0 22px 50px rgba(0, 240, 255, 0.28);
+  --card-blur: blur(12px);
 }
 
-[data-theme="neon"] h1,
-[data-theme="neon"] .header-title {
-    text-shadow: 0 0 10px var(--primary-color);
-}
-
-/* =========================================
-   ゲーミングモード 🌈
-   ========================================= */
+/* Gaming */
 [data-theme="gaming"] {
-    --primary-color: #ff0000;
-    --bg-color: #000000;
-    --card-bg: #111111;
-    --text-color: #ffffff;
-    --sub-text: #aaaaaa;
-    --list-bg: #0a0a0a;
-    --border-color: #333;
-    --header-bg: #080808;
-    --input-bg: #111111;
+  --primary-color: #ff2d55;
+  --bg-color: #0b0b10;
+  --card-bg: rgba(16, 16, 24, 0.95);
+  --text-color: #f8f8ff;
+  --sub-text: #a4a4b3;
+  --list-bg: rgba(10, 10, 16, 0.95);
+  --border-color: rgba(255, 45, 85, 0.25);
+  --header-bg: rgba(12, 12, 18, 0.95);
+  --input-bg: rgba(18, 18, 26, 0.95);
+  --accent-1: #ff2d55;
+  --accent-2: #2dfffb;
+  --accent-3: #ffd60a;
+  --pattern-opacity: 0.22;
+  --card-shadow: 0 24px 50px rgba(255, 45, 85, 0.28);
+  --card-blur: blur(8px);
 }
 
-@keyframes rainbow-border {
-    0% {
-        border-color: #ff0000;
-        box-shadow: 0 0 10px #ff0000;
-    }
-
-    17% {
-        border-color: #ff7f00;
-        box-shadow: 0 0 10px #ff7f00;
-    }
-
-    33% {
-        border-color: #ffff00;
-        box-shadow: 0 0 10px #ffff00;
-    }
-
-    50% {
-        border-color: #00ff00;
-        box-shadow: 0 0 10px #00ff00;
-    }
-
-    67% {
-        border-color: #0000ff;
-        box-shadow: 0 0 10px #0000ff;
-    }
-
-    83% {
-        border-color: #8b00ff;
-        box-shadow: 0 0 10px #8b00ff;
-    }
-
-    100% {
-        border-color: #ff0000;
-        box-shadow: 0 0 10px #ff0000;
-    }
-}
-
-[data-theme="gaming"] .card-container {
-    animation: rainbow-border 5s infinite;
-}
-
-/* =========================================
-   レトロRPGモード 👾
-   ========================================= */
+/* Retro */
 [data-theme="retro"] {
-    --primary-color: #d32f2f;
-    --bg-color: #fce4a8;
-    --card-bg: #ffffff;
-    --text-color: #212121;
-    --sub-text: #555555;
-    --list-bg: #f5deb3;
-    --border-color: #000000;
-    --header-bg: #5c94fc;
-    --input-bg: #fff8e1;
-    --font-family: 'Courier New', monospace;
+  --primary-color: #d64045;
+  --bg-color: #fae0b8;
+  --card-bg: #fff7e6;
+  --text-color: #2b1a12;
+  --sub-text: #6a4b3a;
+  --list-bg: #f2d2a6;
+  --border-color: #2b1a12;
+  --header-bg: #3f6df4;
+  --input-bg: #fff2d4;
+  --accent-1: #d64045;
+  --accent-2: #3f6df4;
+  --accent-3: #ffd460;
+  --pattern-opacity: 0.2;
+  --card-shadow: 0 16px 30px rgba(43, 26, 18, 0.2);
+  --card-blur: blur(0px);
 }
 
-[data-theme="retro"]::after {
-    content: "👾";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.6;
-    z-index: 0;
-}
-
-/* =========================================
-   設計図モード 📐
-   ========================================= */
+/* Blueprint */
 [data-theme="blueprint"] {
-    --primary-color: #ffffff;
-    --bg-color: #2c5ea8;
-    --card-bg: rgba(255, 255, 255, 0.1);
-    --text-color: #ffffff;
-    --sub-text: #d0e0ff;
-    --list-bg: rgba(255, 255, 255, 0.1);
-    --border-color: rgba(255, 255, 255, 0.5);
-    --header-bg: #224a85;
-    --input-bg: rgba(255, 255, 255, 0.1);
+  --primary-color: #e6f3ff;
+  --bg-color: #153a6e;
+  --card-bg: rgba(14, 44, 86, 0.85);
+  --text-color: #e6f3ff;
+  --sub-text: #b4d3ff;
+  --list-bg: rgba(12, 36, 70, 0.85);
+  --border-color: rgba(230, 243, 255, 0.35);
+  --header-bg: rgba(16, 41, 80, 0.95);
+  --input-bg: rgba(18, 48, 90, 0.9);
+  --accent-1: #e6f3ff;
+  --accent-2: #7cc4ff;
+  --accent-3: #ffd166;
+  --pattern-opacity: 0.3;
+  --card-shadow: 0 24px 50px rgba(6, 15, 30, 0.42);
+  --card-blur: blur(6px);
 }
 
-[data-theme="blueprint"] {
-    background-image:
-        linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-    background-size: 20px 20px;
-}
-
-[data-theme="blueprint"]::after {
-    content: "📐";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.4;
-    z-index: 0;
-}
-
-/* =========================================
-   和風・浮世絵モード 🍵
-   ========================================= */
+/* Japan */
 [data-theme="japan"] {
-    --primary-color: #b7282e;
-    --bg-color: #f3f0e6;
-    --card-bg: #ffffff;
-    --text-color: #2f2725;
-    --sub-text: #706b67;
-    --list-bg: #e6e1d6;
-    --border-color: #9e8b7e;
-    --header-bg: #1f314a;
-    --input-bg: #f9f8f5;
+  --primary-color: #b3282e;
+  --bg-color: #f4f0e6;
+  --card-bg: #fffdf8;
+  --text-color: #2b2522;
+  --sub-text: #6f6862;
+  --list-bg: #ece4d6;
+  --border-color: #b7a38f;
+  --header-bg: rgba(26, 38, 58, 0.96);
+  --input-bg: #fffaf2;
+  --accent-1: #b3282e;
+  --accent-2: #1f314a;
+  --accent-3: #e0b066;
+  --pattern-opacity: 0.18;
+  --card-shadow: 0 20px 38px rgba(45, 35, 30, 0.18);
+  --card-blur: blur(6px);
 }
 
-[data-theme="japan"]::after {
-    content: "🍵";
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 60px;
-    opacity: 0.4;
-    z-index: 0;
-}
-
-/* =========================================
-   テーマ共通スタイル適用
-   ========================================= */
+/* Global surfaces */
 body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    transition: background-color 0.3s, color 0.3s;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.35s ease, color 0.35s ease;
+  position: relative;
 }
 
-/* ヘッダー */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes theme-drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-18px);
+  }
+}
+
+[data-theme="default"] body::before {
+  background:
+    radial-gradient(60% 40% at 10% 0%, rgba(27, 108, 255, 0.16), transparent 60%),
+    radial-gradient(60% 40% at 90% 10%, rgba(38, 211, 179, 0.2), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), transparent 65%);
+}
+
+[data-theme="default"] body::after {
+  background-image: radial-gradient(rgba(12, 20, 35, 0.08) 1px, transparent 1px);
+  background-size: 16px 16px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(60% 40% at 80% 0%, rgba(124, 77, 255, 0.25), transparent 55%),
+    radial-gradient(70% 45% at 10% 10%, rgba(110, 231, 255, 0.18), transparent 60%),
+    linear-gradient(160deg, rgba(10, 14, 26, 0.9), rgba(5, 8, 16, 0.95));
+  animation: theme-drift 12s ease-in-out infinite alternate;
+}
+
+[data-theme="dark"] body::after {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="cat"] body::before {
+  background:
+    radial-gradient(55% 40% at 15% 0%, rgba(255, 95, 162, 0.28), transparent 60%),
+    radial-gradient(50% 35% at 80% 15%, rgba(255, 209, 102, 0.25), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), transparent 60%);
+}
+
+[data-theme="cat"] body::after {
+  background-image:
+    radial-gradient(rgba(255, 95, 162, 0.35) 1px, transparent 1px),
+    radial-gradient(rgba(255, 181, 216, 0.35) 1px, transparent 1px);
+  background-size: 22px 22px, 32px 32px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="dog"] body::before {
+  background:
+    radial-gradient(60% 45% at 80% 0%, rgba(255, 138, 0, 0.25), transparent 60%),
+    radial-gradient(50% 40% at 20% 10%, rgba(124, 195, 255, 0.25), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), transparent 60%);
+}
+
+[data-theme="dog"] body::after {
+  background-image:
+    radial-gradient(rgba(255, 138, 0, 0.25) 1px, transparent 1px),
+    radial-gradient(rgba(255, 209, 102, 0.25) 1px, transparent 1px);
+  background-size: 26px 26px, 36px 36px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="horse"] body::before {
+  background:
+    linear-gradient(180deg, rgba(246, 239, 228, 0.96), rgba(223, 203, 176, 0.96)),
+    radial-gradient(60% 40% at 80% 0%, rgba(181, 106, 31, 0.28), transparent 60%),
+    radial-gradient(50% 35% at 10% 10%, rgba(44, 110, 73, 0.15), transparent 60%);
+}
+
+[data-theme="horse"] body::after {
+  background-image:
+    linear-gradient(90deg, rgba(97, 74, 52, 0.16) 1px, transparent 1px),
+    linear-gradient(rgba(97, 74, 52, 0.16) 1px, transparent 1px),
+    radial-gradient(rgba(44, 110, 73, 0.12) 1px, transparent 1px);
+  background-size: 54px 54px, 54px 54px, 22px 22px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="dragon"] body::before {
+  background:
+    radial-gradient(60% 40% at 20% 10%, rgba(255, 66, 66, 0.3), transparent 60%),
+    radial-gradient(50% 35% at 80% 0%, rgba(255, 177, 0, 0.25), transparent 55%),
+    linear-gradient(160deg, rgba(15, 6, 8, 0.95), rgba(7, 2, 4, 0.98));
+  animation: theme-drift 10s ease-in-out infinite alternate;
+}
+
+[data-theme="dragon"] body::after {
+  background-image: radial-gradient(rgba(255, 66, 66, 0.16) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="neon"] body::before {
+  background:
+    radial-gradient(60% 40% at 70% 0%, rgba(0, 240, 255, 0.28), transparent 60%),
+    radial-gradient(55% 35% at 15% 15%, rgba(255, 46, 234, 0.28), transparent 60%),
+    radial-gradient(45% 30% at 90% 70%, rgba(124, 255, 0, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(6, 7, 14, 0.98), rgba(4, 5, 12, 0.99));
+}
+
+[data-theme="neon"] body::after {
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 46, 234, 0.2) 1px, transparent 1px),
+    radial-gradient(rgba(124, 255, 0, 0.22) 1px, transparent 1px);
+  background-size: 22px 22px, 22px 22px, 32px 32px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="gaming"] body::before {
+  background:
+    linear-gradient(135deg, rgba(255, 45, 85, 0.18), transparent 55%),
+    linear-gradient(225deg, rgba(45, 255, 251, 0.14), transparent 60%),
+    linear-gradient(180deg, rgba(8, 8, 14, 0.96), rgba(4, 4, 10, 0.98));
+  animation: theme-drift 14s ease-in-out infinite alternate;
+}
+
+[data-theme="gaming"] body::after {
+  background-image:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 4px),
+    radial-gradient(rgba(255, 45, 85, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 255, 251, 0.06) 1px, transparent 1px);
+  background-size: 100% 4px, 28px 28px, 18px 18px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="retro"] body::before {
+  background:
+    linear-gradient(180deg, rgba(255, 247, 230, 0.95), rgba(248, 216, 168, 0.95)),
+    linear-gradient(90deg, rgba(63, 109, 244, 0.18), transparent 50%);
+}
+
+[data-theme="retro"] body::after {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(43, 26, 18, 0.12) 0 2px, transparent 2px 6px),
+    radial-gradient(rgba(43, 26, 18, 0.1) 1px, transparent 1px);
+  background-size: 6px 100%, 14px 14px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="blueprint"] body::before {
+  background:
+    linear-gradient(180deg, rgba(18, 50, 98, 0.98), rgba(8, 24, 48, 0.99)),
+    radial-gradient(60% 40% at 20% 0%, rgba(124, 196, 255, 0.25), transparent 60%),
+    radial-gradient(50% 35% at 90% 10%, rgba(255, 214, 102, 0.18), transparent 60%);
+}
+
+[data-theme="blueprint"] body::after {
+  background-image:
+    linear-gradient(rgba(230, 243, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230, 243, 255, 0.2) 1px, transparent 1px),
+    radial-gradient(rgba(255, 214, 102, 0.25) 1px, transparent 1px),
+    linear-gradient(45deg, rgba(230, 243, 255, 0.12) 1px, transparent 1px);
+  background-size: 26px 26px, 26px 26px, 52px 52px, 78px 78px;
+  opacity: var(--pattern-opacity);
+}
+
+[data-theme="japan"] body::before {
+  background:
+    radial-gradient(50% 40% at 20% 0%, rgba(179, 40, 46, 0.26), transparent 55%),
+    radial-gradient(55% 35% at 80% 10%, rgba(31, 49, 74, 0.22), transparent 55%),
+    radial-gradient(50% 40% at 70% 80%, rgba(224, 176, 102, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(236, 226, 210, 0.96));
+}
+
+[data-theme="japan"] body::after {
+  background-image:
+    linear-gradient(120deg, rgba(179, 40, 46, 0.12) 1px, transparent 1px),
+    linear-gradient(60deg, rgba(31, 49, 74, 0.12) 1px, transparent 1px),
+    radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+    radial-gradient(rgba(224, 176, 102, 0.16) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 18px 18px, 30px 30px;
+  opacity: var(--pattern-opacity);
+}
+
+/* Theme label accents */
+[data-theme="cat"]::after,
+[data-theme="dog"]::after,
+[data-theme="horse"]::after,
+[data-theme="dragon"]::after,
+[data-theme="neon"]::after,
+[data-theme="gaming"]::after,
+[data-theme="retro"]::after,
+[data-theme="blueprint"]::after,
+[data-theme="japan"]::after {
+  position: fixed;
+  right: 22px;
+  bottom: 20px;
+  font-size: 48px;
+  letter-spacing: 4px;
+  font-weight: 700;
+  opacity: 0.16;
+  z-index: 0;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+[data-theme="cat"]::after { content: "CAT"; }
+[data-theme="dog"]::after { content: "DOG"; }
+[data-theme="horse"]::after { content: "HORSE"; }
+[data-theme="dragon"]::after { content: "DRAGON"; }
+[data-theme="neon"]::after { content: "NEON"; }
+[data-theme="gaming"]::after { content: "GAME"; }
+[data-theme="retro"]::after { content: "RETRO"; }
+[data-theme="blueprint"]::after { content: "BLUEPRINT"; }
+[data-theme="japan"]::after { content: "JAPAN"; }
+
+/* Header */
 header,
 .header-container {
-    background-color: var(--header-bg) !important;
-    border-color: var(--border-color) !important;
+  background-color: var(--header-bg) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  backdrop-filter: var(--card-blur);
 }
 
-/* カード */
+/* Cards */
 .card-container,
 .trello-card {
-    background-color: var(--card-bg) !important;
-    border-color: var(--border-color) !important;
-    color: var(--text-color) !important;
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+  box-shadow: var(--card-shadow);
+  backdrop-filter: var(--card-blur);
 }
 
-/* リスト */
+/* Lists */
 .list-container,
 .list-column {
-    background-color: var(--list-bg) !important;
+  background-color: var(--list-bg) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
-/* 入力フィールド */
+/* Inputs */
 input,
 select,
 textarea {
-    background-color: var(--input-bg);
-    border-color: var(--border-color);
-    color: var(--text-color);
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 1px;
+}
+
+/* Themed typography touches */
+[data-theme="neon"] body,
+[data-theme="gaming"] body {
+  font-family: var(--font-display);
+  letter-spacing: 0.4px;
+}
+
+[data-theme="retro"] body {
+  font-family: "Courier New", monospace;
 }
