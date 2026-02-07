@@ -1,8 +1,37 @@
 import { create } from "zustand";
 import type { GameData, RankingEntry, ShopItem } from "@/types/game";
 import { DEFAULT_GAME_DATA } from "@/types/game";
-import { getXpMultiplier, getXpFlatBonus } from "@/lib/gameEffects";
+import { getXpMultiplier, getXpFlatBonus, getClickPower, getAutoXpMultiplier } from "@/lib/gameEffects";
 import { toast } from "@/components/ui/Toast";
+
+export const GROWTH_UPGRADES = {
+    click: {
+        id: "growth_click",
+        name: "Click Boost",
+        baseCost: 150,
+        costGrowth: 1.35,
+        maxLevel: 25,
+        effectLabel: "+1 XP per click",
+    },
+    auto: {
+        id: "growth_auto",
+        name: "Idle Boost",
+        baseCost: 300,
+        costGrowth: 1.4,
+        maxLevel: 20,
+        effectLabel: "+10% idle XP",
+    },
+    keiba: {
+        id: "growth_keiba",
+        name: "Keiba Boost",
+        baseCost: 800,
+        costGrowth: 1.45,
+        maxLevel: 20,
+        effectLabel: "+5% payout",
+    },
+} as const;
+
+type GrowthUpgradeKey = keyof typeof GROWTH_UPGRADES;
 
 // ショップアイテム定義
 export const SHOP_ITEMS: ShopItem[] = [
@@ -501,11 +530,17 @@ interface GameState {
     getLevelProgress: () => { current: number; required: number; percent: number };
     canAfford: (price: number) => boolean;
     getOwnedCount: (itemId: string) => number;
+    getClickPower: () => number;
+    getAutoXpPerSecond: () => number;
+    getGrowthUpgradeLevel: (key: GrowthUpgradeKey) => number;
+    getGrowthUpgradeCost: (key: GrowthUpgradeKey) => number;
 
     // ゲームアクション
     addXP: (amount: number) => void;
+    addClickXP: () => void;
     addMoney: (amount: number) => void;
     purchaseItem: (itemId: string) => { success: boolean; message?: string };
+    purchaseGrowthUpgrade: (key: GrowthUpgradeKey) => { success: boolean; message?: string };
 
     // オートクリッカー処理 (1秒ごとに呼び出し)
     tick: () => void;
@@ -566,6 +601,37 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     canAfford: (price) => get().data.money - price >= -10000,
     getOwnedCount: (itemId) => get().data.inventory[itemId] || 0,
+    getClickPower: () => getClickPower(get().data.inventory || {}),
+    getAutoXpPerSecond: () => {
+        const { data } = get();
+        const inventory = data.inventory || {};
+        const activeBoosts = data.activeBoosts || {};
+        const xpMultiplier = getXpMultiplier(inventory, activeBoosts);
+        const autoMultiplier = getAutoXpMultiplier(inventory);
+
+        let autoXp = 0;
+        SHOP_ITEMS.forEach((item) => {
+            if (item.category === "facility" && item.effect?.startsWith("auto_xp_")) {
+                const count = data.inventory[item.id] || 0;
+                if (count > 0) {
+                    const xpPerSec = parseFloat(item.effect.replace("auto_xp_", ""));
+                    autoXp += xpPerSec * count;
+                }
+            }
+        });
+
+        return autoXp * xpMultiplier * autoMultiplier;
+    },
+    getGrowthUpgradeLevel: (key) => {
+        const upgrade = GROWTH_UPGRADES[key];
+        return get().data.inventory[upgrade.id] || 0;
+    },
+    getGrowthUpgradeCost: (key) => {
+        const upgrade = GROWTH_UPGRADES[key];
+        const level = get().data.inventory[upgrade.id] || 0;
+        const raw = upgrade.baseCost * Math.pow(upgrade.costGrowth, level);
+        return Math.floor(raw);
+    },
 
     // XP追加（レベルアップチェック付き）
     addXP: (amount) => {
@@ -621,6 +687,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     },
 
     // お金追加
+    addClickXP: () => {
+        const { data } = get();
+        const power = getClickPower(data.inventory || {});
+        get().addXP(power);
+    },
+
     addMoney: (amount) => {
         const { data } = get();
         set({
@@ -663,6 +735,33 @@ export const useGameStore = create<GameState>((set, get) => ({
         return { success: true };
     },
 
+    purchaseGrowthUpgrade: (key) => {
+        const { data } = get();
+        const upgrade = GROWTH_UPGRADES[key];
+        const currentLevel = data.inventory[upgrade.id] || 0;
+        if (currentLevel >= upgrade.maxLevel) {
+            return { success: false, message: "Already max level" };
+        }
+        const cost = get().getGrowthUpgradeCost(key);
+        if (data.money < cost) {
+            return { success: false, message: "Not enough money" };
+        }
+
+        get().addMoney(-cost);
+        set((state) => ({
+            data: {
+                ...state.data,
+                inventory: {
+                    ...state.data.inventory,
+                    [upgrade.id]: currentLevel + 1,
+                },
+            },
+            isDirty: true,
+        }));
+
+        return { success: true };
+    },
+
     // 定期実行 (オートクリッカー等)
     tick: () => {
         const { data } = get();
@@ -693,6 +792,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
         }
         const xpMultiplier = getXpMultiplier(inventory, prunedBoosts);
+        const autoMultiplier = getAutoXpMultiplier(inventory);
         let autoXp = 0;
 
         SHOP_ITEMS.forEach((item) => {
@@ -706,7 +806,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
 
         if (autoXp > 0) {
-            autoXp *= xpMultiplier;
+            autoXp *= xpMultiplier * autoMultiplier;
             // 小数点は確率で処理するか、内部で保持するか。今回は確率で処理
             // 例: 0.1XP -> 10%の確率で1XP
             const intXp = Math.floor(autoXp);

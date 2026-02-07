@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useThemeStore, THEMES, ThemeId } from "@/stores/themeStore";
+import { useGameStore, GROWTH_UPGRADES } from "@/stores/gameStore";
 import { signOut } from "@/lib/auth/client";
+import { toast } from "@/components/ui/Toast";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -16,6 +18,19 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<"general" | "game">("general");
     const { currentTheme, config, setTheme, updateConfig } = useThemeStore();
+    const {
+        data: gameData,
+        getClickPower,
+        getAutoXpPerSecond,
+        getGrowthUpgradeLevel,
+        getGrowthUpgradeCost,
+        purchaseGrowthUpgrade,
+    } = useGameStore();
+
+    const clickPower = getClickPower();
+    const autoXpPerSec = getAutoXpPerSecond();
+    const keibaBonus = getGrowthUpgradeLevel("keiba") * 5;
+    const growthKeys = ["click", "auto", "keiba"] as const;
 
     // 背景設定はStoreのconfigを直接参照・更新するため、ローカルstateは不要
 
@@ -239,40 +254,64 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     {activeTab === "game" && (
                         <div className="space-y-4">
-                            {/* ランキングプレート */}
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">
-                                    ランキングプレート (Lv.80~)
-                                </label>
-                                <select className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                                    <option value="">なし</option>
-                                    <option value="plate-galaxy">銀河</option>
-                                    <option value="plate-magma">マグマ</option>
-                                    <option value="plate-matrix">マトリックス</option>
-                                    <option value="plate-gold">黄金</option>
-                                </select>
-                            </div>
-
-                            {/* 名前エフェクト */}
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">
-                                    名前エフェクト (Lv.50~)
-                                </label>
-                                <select className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                                    <option value="">なし</option>
-                                    <option value="effect-rainbow">レインボー</option>
-                                    <option value="effect-fire">炎</option>
-                                    <option value="effect-ice">氷</option>
-                                    <option value="effect-gold">ゴールド</option>
-                                </select>
-                            </div>
-
-                            {/* プレビュー */}
-                            <div className="p-4 bg-gray-100 rounded text-center">
-                                <p className="text-sm text-gray-500">プレビュー</p>
-                                <div className="mt-2 inline-block px-4 py-2 bg-white rounded shadow">
-                                    <span className="font-bold">ユーザー名</span>
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-bold text-gray-800">Growth Panel</h4>
+                                    <div className="text-xs text-gray-500">Balance: {gameData.money.toLocaleString()} G</div>
                                 </div>
+                                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                    <div className="rounded-md bg-white border border-gray-200 p-2">
+                                        <div className="text-gray-500">Click Power</div>
+                                        <div className="text-sm font-bold text-gray-800">+{clickPower} XP</div>
+                                    </div>
+                                    <div className="rounded-md bg-white border border-gray-200 p-2">
+                                        <div className="text-gray-500">Idle XP</div>
+                                        <div className="text-sm font-bold text-gray-800">{autoXpPerSec.toFixed(1)} XP/s</div>
+                                    </div>
+                                    <div className="rounded-md bg-white border border-gray-200 p-2">
+                                        <div className="text-gray-500">Keiba Payout</div>
+                                        <div className="text-sm font-bold text-gray-800">+{keibaBonus}%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                {growthKeys.map((key) => {
+                                    const upgrade = GROWTH_UPGRADES[key];
+                                    const level = getGrowthUpgradeLevel(key);
+                                    const cost = getGrowthUpgradeCost(key);
+                                    const isMax = level >= upgrade.maxLevel;
+                                    return (
+                                        <div key={upgrade.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <div className="text-sm font-bold text-gray-800">{upgrade.name}</div>
+                                                    <div className="text-xs text-gray-500">{upgrade.effectLabel}</div>
+                                                </div>
+                                                <div className="text-xs text-gray-500">Lv. {level}/{upgrade.maxLevel}</div>
+                                            </div>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <div className="text-xs text-gray-600">Next Upgrade: {isMax ? "MAX" : `${cost.toLocaleString()} G`}</div>
+                                                <button
+                                                    disabled={isMax}
+                                                    onClick={() => {
+                                                        const result = purchaseGrowthUpgrade(key);
+                                                        if (!result.success) {
+                                                            toast.error(result.message || "Upgrade failed");
+                                                        } else {
+                                                            toast.success("Upgraded");
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1 text-xs rounded font-medium transition-colors ${isMax
+                                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                                        : "bg-blue-500 text-white hover:bg-blue-600"}`}
+                                                >
+                                                    Upgrade
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

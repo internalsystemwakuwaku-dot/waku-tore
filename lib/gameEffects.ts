@@ -57,6 +57,22 @@ export function getMoneyMultiplier(inventory: Inventory, activeBoosts: ActiveBoo
     return mult;
 }
 
+export function getClickPower(inventory: Inventory): number {
+    const base = 2;
+    const bonus = getInventoryCount(inventory, "growth_click");
+    return base + bonus;
+}
+
+export function getAutoXpMultiplier(inventory: Inventory): number {
+    const level = getInventoryCount(inventory, "growth_auto");
+    return 1 + level * 0.1;
+}
+
+export function getKeibaPayoutMultiplier(inventory: Inventory): number {
+    const level = getInventoryCount(inventory, "growth_keiba");
+    return 1 + level * 0.05;
+}
+
 export function getGachaDiscountRate(inventory: Inventory, activeBoosts: ActiveBoosts): number {
     return isBoostActive(activeBoosts, "booster_gacha") ? 0.8 : 1;
 }

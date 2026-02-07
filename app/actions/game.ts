@@ -10,7 +10,7 @@ import { gameData, transactions, keibaTransactions, users } from "@/lib/db/schem
 import { eq, sql, desc } from "drizzle-orm";
 import type { GameData, XpEventType, RankingEntry } from "@/types/game";
 import { XP_REWARDS, LEVEL_TABLE, LEVEL_REWARDS, DEFAULT_GAME_DATA } from "@/types/game";
-import { getBoosterDurationMs, getMoneyMultiplier, getXpFlatBonus, getXpMultiplier } from "@/lib/gameEffects";
+import { getBoosterDurationMs, getMoneyMultiplier, getXpFlatBonus, getXpMultiplier, getKeibaPayoutMultiplier } from "@/lib/gameEffects";
 
 /**
  * ゲームチE�Eタを取得（なければ作�E�E�E
@@ -186,9 +186,14 @@ export async function transactMoney(
         const activeBoosts = data.activeBoosts || {};
         const moneyMultiplier = getMoneyMultiplier(inventory, activeBoosts);
         const boostableTypes = new Set(["LEVEL_UP", "DAILY_BONUS", "GACHA_ITEM", "PAYOUT", "GENERAL"]);
-        const adjustedAmount = (amount > 0 && moneyMultiplier !== 1 && boostableTypes.has(type))
-            ? Math.floor(amount * moneyMultiplier)
-            : amount;
+        let adjustedAmount = amount;
+        if (amount > 0 && boostableTypes.has(type)) {
+            adjustedAmount = Math.floor(amount * moneyMultiplier);
+            if (type === "PAYOUT") {
+                const keibaMultiplier = getKeibaPayoutMultiplier(inventory);
+                adjustedAmount = Math.floor(adjustedAmount * keibaMultiplier);
+            }
+        }
 
         // 借��上限 (-10,000G) チェチE��
         const DEBT_LIMIT = -10000;

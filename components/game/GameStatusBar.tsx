@@ -21,7 +21,7 @@ interface GameStatusBarProps {
  * クッキークリッカー、競馬/ガチャボタン付き
  */
 export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGacha }: GameStatusBarProps) {
-    const { data, getLevelProgress, addXP } = useGameStore();
+    const { data, getLevelProgress, addClickXP, getClickPower } = useGameStore();
     const progress = getLevelProgress();
     const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -61,8 +61,10 @@ export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGa
 
     // クッキークリック（+2 XP）
     const handleCookieClick = () => {
-        addXP(2);
+        addClickXP();
     };
+
+    const clickPower = getClickPower();
 
     // ランク名を取得
     const getRankName = (level: number): string => {
@@ -89,7 +91,7 @@ export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGa
                     🍪
                 </button>
                 <div className="text-xs text-gray-500 hidden sm:block">
-                    <div>Click: +2 XP</div>
+                    <div>Click: +{clickPower} XP</div>
                 </div>
             </div>
 
