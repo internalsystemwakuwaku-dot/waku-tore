@@ -25,6 +25,7 @@ interface UIState {
     unlockedListIds: Set<string>;
     sidebarType: "today" | "tomorrow" | "nextMonday" | null;
     editingCardId: string | null;
+    editingCardTab: "assignment" | "info" | "memo" | "move" | null;
     viewingDescriptionCardId: string | null; // M-XX: 説明詳細表示用
     overdueCardIds: Set<string>;
 }
