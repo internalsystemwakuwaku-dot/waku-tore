@@ -511,6 +511,31 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         return isOrderedType ? parts.join("→") : parts.join("-");
     };
 
+    const typeMultiplier: Record<string, number> = {
+        FRAME: 3,
+        QUINELLA: 5,
+        EXACTA: 10,
+        WIDE: 3,
+        TRIO: 15,
+        TRIFECTA: 50,
+        WIN5: 100,
+    };
+
+    const calcAvgOdds = (ids: number[], isFrame: boolean) => {
+        let targets: number[] = [];
+        if (isFrame) {
+            for (const f of ids) {
+                targets = targets.concat(frameMap[f] || []);
+            }
+        } else {
+            targets = ids;
+        }
+        if (targets.length === 0) return 0;
+        const sum = targets.reduce((s, id) => s + (horseById.get(id)?.odds || 2.0), 0);
+        return sum / targets.length;
+    };
+
+
     const buildTickets = () => {
         if (betType === "WIN5") {
             return [win5Selections.slice(0, 5)];
@@ -601,6 +626,24 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         : betType === "WIN5"
             ? win5Selections.length === 5
             : ticketCount > 0;
+    const expectedPayout = (() => {
+        if (betType === "WIN" || betType === "PLACE") {
+            const selectedHorse = horses.find(h => h.id === selectedHorseId);
+            const odds = betType === "WIN"
+                ? (selectedHorse?.odds || 2.0)
+                : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
+            return Math.floor(betAmount * odds);
+        }
+        if (betType === "WIN5") {
+            return Math.floor(betAmount * (typeMultiplier.WIN5 || 100));
+        }
+        if (tickets.length === 0) return 0;
+        const mult = typeMultiplier[betType] || 1;
+        return tickets.reduce((sum, t) => {
+            const avgOdds = calcAvgOdds(t, isFrameType);
+            return sum + Math.floor(betAmount * avgOdds * mult);
+        }, 0);
+    })();
 
     useEffect(() => {
         if (betAmount > maxBetAmount) {
@@ -1029,19 +1072,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             <div className="flex justify-between text-sm mb-2">
                                                 <span className="text-gray-400">想定払戻</span>
                                                 <span className="text-yellow-400 font-bold">
-                                                    {(() => {
-                                                        if (betType === "WIN" || betType === "PLACE") {
-                                                            const selectedHorse = horses.find(h => h.id === selectedHorseId);
-                                                            const odds = betType === "WIN"
-                                                                ? (selectedHorse?.odds || 2.0)
-                                                                : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
-                                                            return Math.floor(betAmount * odds).toLocaleString();
-                                                        }
-                                                        if (betType === "WIN5") {
-                                                            return Math.floor(betAmount * 100).toLocaleString();
-                                                        }
-                                                        return "-";
-                                                    })()} G
+                                                    {expectedPayout > 0 ? expectedPayout.toLocaleString() : "-"} G
                                                 </span>
                                             </div>
                                             <button
