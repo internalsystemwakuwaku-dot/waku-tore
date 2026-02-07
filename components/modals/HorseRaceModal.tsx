@@ -580,7 +580,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                 <div className="text-gray-400 text-center py-10">
                                     {phase === "loading" && "繝ｬ繝ｼ繧ｹ諠・ｱ繧貞叙蠕嶺ｸｭ..."}
                                     {phase === "racing" && "繝ｬ繝ｼ繧ｹ騾ｲ陦御ｸｭ..."}
-                                    {phase === "result" && "谺｡縺ｮ繝ｬ繝ｼ繧ｹ繧貞ｾ・▲縺ｦ縺・∪縺・}
+                                    {phase === "result" && "結果のレースを確認しています..."}
                                     <div className="mt-4">
                                         <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">譖ｴ譁ｰ</button>
                                     </div>
