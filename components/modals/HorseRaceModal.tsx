@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useTransition } from "react";
 import { useGameStore } from "@/stores/gameStore";
 import { getActiveRace, placeBet, cancelBet, getTodayRaceResults } from "@/app/actions/keiba";
 import { getGameData } from "@/app/actions/game";
 import type { Race, Bet, Horse } from "@/types/keiba";
 import { useSound } from "@/lib/sound/SoundContext";
+import { toast } from "@/components/ui/Toast";
 
 interface HorseRaceModalProps {
     isOpen: boolean;
@@ -39,6 +40,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }[]>([]);
     const [resultsLoading, setResultsLoading] = useState(false);
     const [resultsError, setResultsError] = useState<string | null>(null);
+    const [isResultsPending, startResultsTransition] = useTransition();
+    const todayResultsRef = useRef(todayResults);
+    const resultsSignatureRef = useRef<string>("");
+    const resultsFetchingRef = useRef(false);
+    const resultsLoadedRef = useRef(false);
 
     const [phase, setPhase] = useState<"loading" | "betting" | "racing" | "result">("loading");
     const [positions, setPositions] = useState<number[]>([0, 0, 0, 0, 0, 0]);
@@ -73,6 +79,10 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [gameUser.userId]);
 
     useEffect(() => {
+        todayResultsRef.current = todayResults;
+    }, [todayResults]);
+
+    useEffect(() => {
         if (isOpen) {
             fetchRace();
             const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -88,26 +98,59 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         }
     }, [isOpen, fetchRace, phase]);
 
+    const fetchTodayResults = useCallback(async (forceLoading = false) => {
+        if (resultsFetchingRef.current) return;
+        resultsFetchingRef.current = true;
+        const shouldShowLoading = forceLoading || (!resultsLoadedRef.current && todayResultsRef.current.length === 0);
+        if (shouldShowLoading) {
+            setResultsLoading(true);
+        }
+        try {
+            const res = await getTodayRaceResults();
+            const signature = JSON.stringify(res.map(item => ({
+                id: item.race.id,
+                status: item.race.status,
+                startedAt: item.race.startedAt,
+                ranking: item.ranking,
+                results: item.results,
+                bets: (item.bets || []).map(b => ({
+                    userId: b.userId,
+                    totalBet: b.totalBet,
+                    totalPayout: b.totalPayout,
+                })),
+            })));
+
+            if (signature !== resultsSignatureRef.current) {
+                resultsSignatureRef.current = signature;
+                startResultsTransition(() => setTodayResults(res));
+            }
+            setResultsError(null);
+            resultsLoadedRef.current = true;
+            if (forceLoading) {
+                toast.info("最新に更新しました");
+            }
+        } catch (err) {
+            console.error("[HorseRaceModal] Failed to fetch results:", err);
+            if (!resultsLoadedRef.current && todayResultsRef.current.length === 0) {
+                setResultsError("邨先棡縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆");
+                setTodayResults([]);
+            }
+            if (forceLoading) {
+                toast.error("更新に失敗しました。再試行してください");
+            }
+        } finally {
+            if (shouldShowLoading) {
+                setResultsLoading(false);
+            }
+            resultsFetchingRef.current = false;
+        }
+    }, [startResultsTransition, setResultsError, setResultsLoading, setTodayResults]);
+
     useEffect(() => {
         if (tab !== "today" || !isOpen) return;
-
-        const fetchResults = () => {
-            setResultsLoading(true);
-            setResultsError(null);
-            getTodayRaceResults()
-                .then(res => setTodayResults(res))
-                .catch(err => {
-                    console.error("[HorseRaceModal] Failed to fetch results:", err);
-                    setResultsError("結果の取得に失敗しました");
-                    setTodayResults([]);
-                })
-                .finally(() => setResultsLoading(false));
-        };
-
-        fetchResults();
-        const interval = setInterval(fetchResults, 5000);
-        return () => clearInterval(interval);
-    }, [tab, isOpen]);
+        fetchTodayResults();
+        return () => {};
+    }, [tab, isOpen, fetchTodayResults]);
 
     useEffect(() => {
         if (phase === "result") {
@@ -285,16 +328,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("投票しました");
+                alert("謚慕･ｨ縺励∪縺励◆");
                 setSelectedHorseId(null);
             } else {
                 playSe("cancel");
-                alert(result.error || "投票に失敗しました");
+                alert(result.error || "謚慕･ｨ縺ｫ螟ｱ謨励＠縺ｾ縺励◆");
             }
         } catch (e) {
             console.error(e);
             playSe("cancel");
-            alert("エラーが発生しました");
+            alert("繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆");
         } finally {
             setIsLoading(false);
         }
@@ -302,7 +345,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     const handleCancelBet = async (betId: string) => {
         if (isLoading) return;
-        if (!confirm("この投票をキャンセルしますか？")) return;
+        if (!confirm("縺薙・謚慕･ｨ繧偵く繝｣繝ｳ繧ｻ繝ｫ縺励∪縺吶°・・)) return;
 
         setIsLoading(true);
         try {
@@ -319,14 +362,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("キャンセルしました");
+                alert("繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺励∪縺励◆");
             } else {
                 playSe("cancel");
-                alert(result.error || "キャンセルに失敗しました");
+                alert(result.error || "繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺ｫ螟ｱ謨励＠縺ｾ縺励◆");
             }
         } catch (e) {
             console.error(e);
-            alert("エラーが発生しました");
+            alert("繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆");
         } finally {
             setIsLoading(false);
         }
@@ -356,7 +399,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         <h2 className="text-xl font-bold">{race?.name || "Loading..."}</h2>
                         {phase === "betting" && (
                             <p className="text-xs text-gray-400">
-                                締切まで {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+                                邱蛻・∪縺ｧ {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
                             </p>
                         )}
                     </div>
@@ -365,14 +408,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             <div className="text-xs text-gray-400">WALLET</div>
                             <div className="font-mono text-yellow-400">{gameUser.money.toLocaleString()} G</div>
                         </div>
-                        <button onClick={handleClose} className="text-gray-400 hover:text-white">✕</button>
+                        <button onClick={handleClose} className="text-gray-400 hover:text-white">笨・/button>
                     </div>
                 </div>
 
                                                                                                 <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
-                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>投票</button>
-                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>結果</button>
-                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>本日の結果</button>
+                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>謚慕･ｨ</button>
+                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>邨先棡</button>
+                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>譛ｬ譌･縺ｮ邨先棡</button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
@@ -391,13 +434,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             
                                                 className={`px-3 py-1 rounded ${betType === "WIN" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                単勝
+                                                蜊伜享
                                             </button>
                                             <button
                                                 onClick={() => setBetType("PLACE")}
                                                 className={`px-3 py-1 rounded ${betType === "PLACE" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                複勝
+                                                隍・享
                                             </button>
                                         </div>
 
@@ -447,7 +490,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             onClick={() => handleCancelBet(bet.id as string)}
                                                                             className="text-gray-400 hover:text-red-400"
                                                                         >
-                                                                            取消
+                                                                            蜿匁ｶ・
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -460,12 +503,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     </div>
 
                                     <div className="bg-gray-800/80 rounded-lg p-4 border border-gray-700 h-fit">
-                                        <h3 className="text-lg font-bold mb-4">投票内容</h3>
+                                        <h3 className="text-lg font-bold mb-4">謚慕･ｨ蜀・ｮｹ</h3>
 
                                         {selectedHorseId ? (
                                             <>
                                                 <div className="mb-4">
-                                                    <div className="text-xs text-gray-400">選択中</div>
+                                                    <div className="text-xs text-gray-400">驕ｸ謚樔ｸｭ</div>
                                                     <div className="font-bold">
                                                         {horses.find(h => h.id === selectedHorseId)?.name}
                                                     </div>
@@ -500,13 +543,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         <span className="font-mono">{betAmount.toLocaleString()} G</span>
                                                     </div>
                                                     <p className="text-xs text-red-400">
-                                                        借入残り (本日): {remainingLoan.toLocaleString()}G
+                                                        蛟溷・谿九ｊ (譛ｬ譌･): {remainingLoan.toLocaleString()}G
                                                     </p>
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700 mt-4">
                                                     <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-gray-400">想定払戻</span>
+                                                        <span className="text-gray-400">諠ｳ螳壽鴛謌ｻ</span>
                                                         <span className="text-yellow-400 font-bold">
                                                             {(() => {
                                                                 const selectedHorse = horses.find(h => h.id === selectedHorseId);
@@ -522,12 +565,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         disabled={isLoading}
                                                         className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                                     >
-                                                        {isLoading ? "処理中..." : "投票する"}
+                                                        {isLoading ? "蜃ｦ逅・ｸｭ..." : "謚慕･ｨ縺吶ｋ"}
                                                     </button>
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="text-gray-400 text-sm">馬を選択してください</div>
+                                            <div className="text-gray-400 text-sm">鬥ｬ繧帝∈謚槭＠縺ｦ縺上□縺輔＞</div>
                                         )}
                                     </div>
                                 </div>
@@ -535,11 +578,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                                                         {phase !== "betting" && (
                                 <div className="text-gray-400 text-center py-10">
-                                    {phase === "loading" && "レース情報を取得中..."}
-                                    {phase === "racing" && "レース進行中..."}
-                                    {phase === "result" && "次のレースを待っています"}
+                                    {phase === "loading" && "繝ｬ繝ｼ繧ｹ諠・ｱ繧貞叙蠕嶺ｸｭ..."}
+                                    {phase === "racing" && "繝ｬ繝ｼ繧ｹ騾ｲ陦御ｸｭ..."}
+                                    {phase === "result" && "谺｡縺ｮ繝ｬ繝ｼ繧ｹ繧貞ｾ・▲縺ｦ縺・∪縺・}
                                     <div className="mt-4">
-                                        <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">更新</button>
+                                        <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">譖ｴ譁ｰ</button>
                                     </div>
                                 </div>
                             )}
@@ -549,13 +592,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                      ) : tab === "race" ? (
                         <div className="space-y-4">
                             {phase === "betting" && (
-                                <div className="text-gray-400 text-center py-10">結果はまだ確定していません</div>
+                                <div className="text-gray-400 text-center py-10">邨先棡縺ｯ縺ｾ縺遒ｺ螳壹＠縺ｦ縺・∪縺帙ｓ</div>
                             )}
 
                             {(phase === "racing" || phase === "result") && (
                                 <div className="space-y-4">
                                     <div className="text-center text-gray-400">
-                                        {phase === "racing" ? "レース進行中..." : "結果確定"}
+                                        {phase === "racing" ? "繝ｬ繝ｼ繧ｹ騾ｲ陦御ｸｭ..." : "邨先棡遒ｺ螳・}
                                     </div>
 
                                     <div className="space-y-2">
@@ -581,9 +624,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     const horse = horses.find(h => h.id === horseId);
                                                     return (
                                                         <div key={horseId} className="flex justify-between">
-                                                            <span>{idx + 1}位</span>
+                                                            <span>{idx + 1}菴・/span>
                                                             <span>{horse?.name || `Horse #${horseId}`}</span>
-                                                            <span>{horse?.odds?.toFixed(1)}倍</span>
+                                                            <span>{horse?.odds?.toFixed(1)}蛟・/span>
                                                         </div>
                                                     );
                                                 })}
@@ -601,49 +644,66 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <h3 className="text-white font-bold text-lg mb-2">本日のレース結果</h3>
-                            {resultsLoading ? (
-                                <div className="text-gray-400 text-center py-10">取得中...</div>
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-white font-bold text-lg">譛ｬ譌･縺ｮ繝ｬ繝ｼ繧ｹ邨先棡</h3>
+                                <button
+                                    onClick={() => fetchTodayResults(true)}
+                                    className="p-2 text-xs bg-gray-700 hover:bg-gray-600 rounded-full"
+                                    disabled={resultsLoading || isResultsPending}
+                                    title="譖ｴ譁ｰ"
+                                >
+                                    <svg className={`w-4 h-4 ${resultsLoading || isResultsPending ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+                            {(resultsLoading || isResultsPending) ? (
+                                <div className="text-gray-400 text-center py-10">蜿門ｾ嶺ｸｭ...</div>
                             ) : resultsError ? (
                                 <div className="text-red-400 text-center py-10">
                                     <p>{resultsError}</p>
                                     <button onClick={() => setTab("bet")} className="mt-4 px-4 py-2 bg-gray-700 rounded">
-                                        戻る
+                                        謌ｻ繧・
                                     </button>
                                 </div>
                             ) : todayResults.length === 0 ? (
-                                <div className="text-gray-500 text-center py-10">本日の結果はまだありません</div>
+                                <div className="text-gray-500 text-center py-10">譛ｬ譌･縺ｮ邨先棡縺ｯ縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ</div>
                             ) : (
                                 todayResults.map((r, i) => (
                                     <div key={i} className="bg-gray-800 p-4 rounded border border-gray-700">
                                         <div className="flex justify-between text-xs text-gray-400 mb-2">
                                             <span>{new Date(r.race.startedAt!).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
                                             <span className={r.race.status === "finished" ? "text-green-400" : "text-gray-500"}>
-                                                {r.race.status === "finished" ? "確定" : r.race.status}
+                                                {r.race.status === "finished" ? "遒ｺ螳・ : r.race.status}
                                             </span>
                                         </div>
                                         <h4 className="font-bold text-white text-md mb-2">{r.race.name}</h4>
                                         <div className="bg-black/30 p-2 rounded text-sm">
                                             {r.results.slice(0, 3).map((res, j) => (
                                                 <div key={j} className="flex gap-2">
-                                                    <span className="font-bold">{j + 1}位</span>
+                                                    <span className="font-bold">{j + 1}菴・/span>
                                                     <span>{res}</span>
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="mt-3 text-xs text-gray-400">配当と購入一覧</div>
+                                        <div className="mt-3 text-xs text-gray-400">驟榊ｽ薙→雉ｼ蜈･荳隕ｧ</div>
                                         <div className="mt-2 space-y-2">
                                             {r.bets.length === 0 ? (
-                                                <div className="text-gray-500 text-xs">購入者なし</div>
+                                                <div className="text-gray-500 text-xs">雉ｼ蜈･閠・↑縺・/div>
                                             ) : (
                                                 r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-gray-300">User: {b.userId}</span>
-                                                            <span className="text-yellow-300">払い戻し {b.totalPayout.toLocaleString()}G</span>
+                                                            <span className="text-yellow-300">謇輔＞謌ｻ縺・{b.totalPayout.toLocaleString()}G</span>
                                                         </div>
                                                         <div className="text-gray-400">
-                                                            投票合計 {b.totalBet.toLocaleString()}G
+                                                            謚慕･ｨ蜷郁ｨ・{b.totalBet.toLocaleString()}G
                                                         </div>
                                                         <div className="mt-1 space-y-1">
                                                             {b.items.map((it, idx) => (
