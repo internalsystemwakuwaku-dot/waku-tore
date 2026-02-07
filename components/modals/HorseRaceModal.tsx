@@ -151,9 +151,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 toast.error("更新に失敗しました。再試行してください");
             }
         } finally {
-            if (shouldShowLoading) {
-                setResultsLoading(false);
-            }
+            setResultsLoading(false);
             resultsFetchingRef.current = false;
         }
     }, [startResultsTransition, setResultsError, setResultsLoading, setTodayResults]);
@@ -166,13 +164,10 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     useEffect(() => {
         if (phase === "result") {
-            getTodayRaceResults()
-                .then(res => setTodayResults(res))
-                .catch(err => {
-                    console.error("[HorseRaceModal] Failed to refresh results after race:", err);
-                });
+            fetchTodayResults(true);
+            if (tab === "bet") setTab("today");
         }
-    }, [phase]);
+    }, [phase, fetchTodayResults, tab]);
 
     useEffect(() => {
         setBetMethod("normal");
@@ -1167,10 +1162,10 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                 <button
                                     onClick={() => fetchTodayResults(true)}
                                     className="p-2 text-xs bg-gray-700 hover:bg-gray-600 rounded-full"
-                                    disabled={resultsLoading || isResultsPending}
+                                    disabled={resultsLoading}
                                     title="譖ｴ譁ｰ"
                                 >
-                                    <svg className={`w-4 h-4 ${resultsLoading || isResultsPending ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className={`w-4 h-4 ${resultsLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
@@ -1180,7 +1175,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     </svg>
                                 </button>
                             </div>
-                            {(resultsLoading || isResultsPending) ? (
+                            {(resultsLoading) ? (
                                 <div className="text-gray-400 text-center py-10">読み込み中...</div>
                             ) : resultsError ? (
                                 <div className="text-red-400 text-center py-10">
