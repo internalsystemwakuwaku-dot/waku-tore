@@ -345,7 +345,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     const handleCancelBet = async (betId: string) => {
         if (isLoading) return;
-        if (!confirm("縺薙・謚慕･ｨ繧偵く繝｣繝ｳ繧ｻ繝ｫ縺励∪縺吶°・・)) return;
+        if (!confirm("この賭けをキャンセルしますか？")) return;
 
         setIsLoading(true);
         try {
