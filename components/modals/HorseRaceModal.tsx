@@ -447,6 +447,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     const horsesList = horses.length > 0 ? horses.map(h => h.id) : [1, 2, 3, 4, 5, 6, 7, 8];
     const framesList = [1, 2, 3, 4];
+    const frameMap: Record<number, number[]> = {
+        1: [horsesList[0], horsesList[1]],
+        2: [horsesList[2], horsesList[3]],
+        3: [horsesList[4], horsesList[5]],
+        4: [horsesList[6], horsesList[7]],
+    };
+    const frameOfHorse = (horseId: number) => {
+        const frame = Object.entries(frameMap).find(([, ids]) => ids.includes(horseId));
+        return frame ? Number(frame[0]) : 0;
+    };
     const isPairType = ["FRAME", "QUINELLA", "EXACTA", "WIDE"].includes(betType);
     const isTripleType = ["TRIO", "TRIFECTA"].includes(betType);
     const isOrderedType = ["EXACTA", "TRIFECTA"].includes(betType);
@@ -489,6 +499,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         };
         helper([]);
         return result;
+    };
+    const formatTicket = (ticket: number[]) => {
+        if (betType === "WIN5") {
+            return win5Selections.map((n, idx) => `R${idx + 1}:${n}`).join(" / ");
+        }
+        const parts = ticket.map((n) => (isFrameType ? `枠${n}` : `馬${n}`));
+        return isOrderedType ? parts.join("→") : parts.join("-");
     };
 
     const buildTickets = () => {
@@ -639,7 +656,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 <button
                                                     key={t.key}
                                                     onClick={() => setBetType(t.key)}
-                                                    className={`px-3 py-1 rounded ${betType === t.key ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
+                                                    className={`px-2.5 py-1 text-xs rounded ${betType === t.key ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                                 >
                                                     {t.label}
                                                 </button>
@@ -657,7 +674,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <button
                                                         key={m.key}
                                                         onClick={() => setBetMethod(m.key)}
-                                                        className={`px-3 py-1 rounded ${betMethod === m.key ? "bg-blue-500 text-white" : "bg-gray-800 text-gray-300"}`}
+                                                        className={`px-2.5 py-1 text-xs rounded ${betMethod === m.key ? "bg-blue-500 text-white" : "bg-gray-800 text-gray-300"}`}
                                                     >
                                                         {m.label}
                                                     </button>
@@ -694,6 +711,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                                         {betType === "WIN5" && (
                                             <div className="space-y-2">
+                                                <div className="text-xs text-gray-400">5レースの1着をすべて当てる（固定100倍）</div>
                                                 {[0, 1, 2, 3, 4].map((i) => (
                                                     <div key={i} className="flex items-center gap-2">
                                                         <span className="text-xs text-gray-400 w-16">R{i + 1}</span>
@@ -720,6 +738,15 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 {betMethod === "normal" && (
                                                     <div className="space-y-2">
                                                         <div className="text-xs text-gray-400">選択順が買い目になります</div>
+                                                        {isOrderedType && (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {(isFrameType ? selectedFrames : selectedHorseIds).map((n, idx) => (
+                                                                    <span key={`${n}-${idx}`} className="px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-200">
+                                                                        {idx + 1}着: {isFrameType ? `枠${n}` : n}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                         <div className="flex flex-wrap gap-2">
                                                             {(isFrameType ? framesList : horsesList).map((n) => {
                                                                 const selected = isFrameType ? selectedFrames.includes(n) : selectedHorseIds.includes(n);
@@ -734,9 +761,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             if (isFrameType) setSelectedFrames(next);
                                                                             else setSelectedHorseIds(next);
                                                                         }}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -759,9 +786,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             if (isFrameType) setSelectedFrames(next);
                                                                             else setSelectedHorseIds(next);
                                                                         }}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -779,9 +806,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                     <button
                                                                         key={n}
                                                                         onClick={() => isFrameType ? setAnchorFrame(n) : setAnchorHorseId(n)}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -799,9 +826,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             if (isFrameType) setSelectedFrames(next);
                                                                             else setSelectedHorseIds(next);
                                                                         }}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -824,9 +851,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             if (isFrameType) setFormationFrameA(next);
                                                                             else setFormationA(next);
                                                                         }}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -844,9 +871,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             if (isFrameType) setFormationFrameB(next);
                                                                             else setFormationB(next);
                                                                         }}
-                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                        className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n}` : n}
+                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -866,9 +893,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                                     if (isFrameType) setFormationFrameC(next);
                                                                                     else setFormationC(next);
                                                                                 }}
-                                                                                className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                                className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                             >
-                                                                                {isFrameType ? `枠${n}` : n}
+                                                                                {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
                                                                             </button>
                                                                         );
                                                                     })}
@@ -961,6 +988,21 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     </div>
                                                     <div className={`text-xs ${isBetOverLimit ? "text-red-400" : "text-gray-400"}`}>
                                                         合計: {totalCost.toLocaleString()}G
+                                                    </div>
+                                                    <div className="mt-3 border-t border-gray-700 pt-3">
+                                                        <div className="text-xs text-gray-400 mb-1">買い目プレビュー</div>
+                                                        {ticketCount === 0 ? (
+                                                            <div className="text-xs text-gray-500">未選択</div>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-300 space-y-1 max-h-24 overflow-y-auto">
+                                                                {tickets.slice(0, 10).map((t, idx) => (
+                                                                    <div key={idx}>{formatTicket(t)}</div>
+                                                                ))}
+                                                                {ticketCount > 10 && (
+                                                                    <div className="text-gray-500">...他 {ticketCount - 10} 点</div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1109,11 +1151,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             ))}
                                         </div>
                                         <div className="mt-3 text-xs text-gray-400">払戻とユーザー一覧</div>
-                                        <div className="mt-2 space-y-2">
-                                            {r.bets.length === 0 ? (
-                                                <div className="text-gray-500 text-xs">該当ユーザーなし</div>
-                                            ) : (
-                                                r.bets.map((b) => (
+                                                    <div className="mt-2 space-y-2">
+                                                        {r.bets.length === 0 ? (
+                                                            <div className="text-gray-500 text-xs">該当ユーザーなし</div>
+                                                        ) : (
+                                                            r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-gray-300">User: {b.userId}</span>
