@@ -7,7 +7,7 @@
  */
 
 import { db } from "@/lib/db/client";
-import { gameData, keibaRaces, keibaTransactions, gachaRecords } from "@/lib/db/schema";
+import { gameData, keibaRaces, keibaTransactions, gachaRecords, users } from "@/lib/db/schema";
 import { eq, desc, and, like, or, gte, lt } from "drizzle-orm";
 import { logActivity } from "./log";
 import type {
@@ -897,6 +897,7 @@ export async function getTodayRaceResults(): Promise<{
     ranking: number[];
     bets: {
         userId: string;
+        userName?: string;
         totalBet: number;
         totalPayout: number;
         items: {
@@ -968,6 +969,7 @@ export async function getTodayRaceResults(): Promise<{
             ranking: number[];
             bets: {
                 userId: string;
+                userName?: string;
                 totalBet: number;
                 totalPayout: number;
                 items: {
@@ -987,10 +989,10 @@ export async function getTodayRaceResults(): Promise<{
                 const horses = JSON.parse(r.horsesJson) as Horse[];
                 results = resultIds.map(hid => {
                     const h = horses.find(h => h.id === hid);
-                    return h ? `${h.name} (${h.odds.toFixed(1)}蛟・` : `ID:${hid}`;
+                    return h ? `${h.name} (オッズ${h.odds.toFixed(1)})` : `ID:${hid}`;
                 });
             } catch {
-                results = ["邨先棡縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆"];
+                results = ["結果の取得に失敗しました"];
             }
 
             const betRows = await db
@@ -998,8 +1000,21 @@ export async function getTodayRaceResults(): Promise<{
                 .from(keibaTransactions)
                 .where(eq(keibaTransactions.raceId, r.id));
 
+            const userIds = Array.from(new Set(betRows.map(b => b.userId)));
+            const userMap = new Map<string, string>();
+            if (userIds.length > 0) {
+                const userRows = await db
+                    .select({ id: users.id, name: users.name, email: users.email })
+                    .from(users)
+                    .where(or(...userIds.map(uid => eq(users.id, uid))));
+                for (const u of userRows) {
+                    userMap.set(u.id, u.name || u.email || u.id);
+                }
+            }
+
             const betsByUser = new Map<string, {
                 userId: string;
+                userName?: string;
                 totalBet: number;
                 totalPayout: number;
                 items: {
@@ -1014,6 +1029,7 @@ export async function getTodayRaceResults(): Promise<{
             for (const b of betRows) {
                 const entry = betsByUser.get(b.userId) || {
                     userId: b.userId,
+                    userName: userMap.get(b.userId),
                     totalBet: 0,
                     totalPayout: 0,
                     items: [],

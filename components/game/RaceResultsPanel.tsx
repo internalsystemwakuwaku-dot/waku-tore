@@ -13,6 +13,7 @@ interface RaceResult {
     startedAt: string;
     bets: {
         userId: string;
+        userName?: string;
         totalBet: number;
         totalPayout: number;
         items: { type: string; horseId?: number; amount: number; payout: number; isWin: boolean }[];
@@ -120,7 +121,7 @@ export function RaceResultsPanel({ isOpen, onClose }: RaceResultsPanelProps) {
                                                 race.bets.map((b) => (
                                                     <div key={b.userId} className="bg-gray-50 border border-gray-200 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
-                                                            <span>User: {b.userId}</span>
+                                                            <span>User: {b.userName || b.userId}</span>
                                                             <span className="text-orange-600">払戻 {b.totalPayout.toLocaleString()}G</span>
                                                         </div>
                                                         <div className="text-gray-500">

@@ -19,7 +19,8 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
     const [race, setRace] = useState<Race | null>(null);
     const [myBets, setMyBets] = useState<Bet[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [isFetchingRace, setIsFetchingRace] = useState(false);
 
     const [betType, setBetType] = useState<"WIN" | "PLACE" | "FRAME" | "QUINELLA" | "EXACTA" | "WIDE" | "TRIO" | "TRIFECTA" | "WIN5">("WIN");
     const [betMethod, setBetMethod] = useState<"normal" | "box" | "nagashi" | "formation">("normal");
@@ -45,6 +46,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         ranking?: number[];
         bets: {
             userId: string;
+            userName?: string;
             totalBet: number;
             totalPayout: number;
             items: { type: string; horseId?: number; amount: number; payout: number; isWin: boolean }[];
@@ -63,7 +65,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const raceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const fetchRace = useCallback(async () => {
-        setIsLoading(true);
+        setIsFetchingRace(true);
         try {
             const { race: fetchedRace, myBets: fetchedBets } = await getActiveRace(gameUser.userId);
             setRace(fetchedRace);
@@ -85,7 +87,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         } catch (e) {
             console.error(e);
         } finally {
-            setIsLoading(false);
+            setIsFetchingRace(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameUser.userId]);
@@ -314,7 +316,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [phase, gameUser.userId, isOpen, playBgm, playSe, stopBgm, setData, startRiggedAnimation]);
 
     const handleBet = async () => {
-        if (!race || isLoading) return;
+        if (!race || isActionLoading) return;
         if (betType === "WIN" || betType === "PLACE") {
             if (!selectedHorseId) return;
         } else if (betType === "WIN5") {
@@ -326,7 +328,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             alert("所持金が不足しています");
             return;
         }
-        setIsLoading(true);
+        setIsActionLoading(true);
         playSe("decide");
 
         try {
@@ -386,15 +388,15 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             playSe("cancel");
             alert("エラーが発生しました");
         } finally {
-            setIsLoading(false);
+            setIsActionLoading(false);
         }
     };
 
     const handleCancelBet = async (betId: string) => {
-        if (isLoading) return;
+        if (isActionLoading) return;
         if (!confirm("この賭けをキャンセルしますか？")) return;
 
-        setIsLoading(true);
+        setIsActionLoading(true);
         try {
             const result = await cancelBet(gameUser.userId, betId);
             if (result.success) {
@@ -418,7 +420,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             console.error(e);
             alert("エラーが発生しました");
         } finally {
-            setIsLoading(false);
+            setIsActionLoading(false);
         }
     };
 
@@ -680,7 +682,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 <div className="p-6 overflow-y-auto flex-1">
                     {tab === "bet" ? (
                         <>
-                            {isLoading && !race && (
+                            {isFetchingRace && !race && (
                                 <div className="text-center text-gray-400">Loading...</div>
                             )}
 
@@ -1079,11 +1081,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             </div>
                                             <button
                                                 onClick={handleBet}
-                                                disabled={isLoading || !isSelectionValid || isBetOverLimit}
+                                                disabled={isActionLoading || !isSelectionValid || isBetOverLimit}
                                                 className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                             >
-                                                {isLoading ? "処理中..." : "賭ける"}
-                                            </button>
+                                                        {isActionLoading ? "処理中..." : "賭ける"}
+                                                    </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1212,7 +1214,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                             r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
-                                                            <span className="text-gray-300">User: {b.userId}</span>
+                                                            <span className="text-gray-300">User: {b.userName || b.userId}</span>
                                                             <span className="text-yellow-300">払い戻し {b.totalPayout.toLocaleString()}G</span>
                                                         </div>
                                                         <div className="text-gray-400">
