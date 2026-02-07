@@ -175,9 +175,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [phase]);
 
     useEffect(() => {
-        if (betType === "WIN" || betType === "PLACE" || betType === "WIN5") {
-            setBetMethod("normal");
-        }
+        setBetMethod("normal");
         setSelectedHorseId(null);
         setSelectedHorseIds([]);
         setSelectedFrames([]);
