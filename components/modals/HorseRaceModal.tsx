@@ -449,6 +449,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         3: [horsesList[4], horsesList[5]],
         4: [horsesList[6], horsesList[7]],
     };
+    const horseById = new Map(horses.map(h => [h.id, h]));
+    const horseLabel = (id: number) => horseById.get(id)?.name || `Horse #${id}`;
+    const frameLabel = (frame: number) => {
+        const ids = frameMap[frame] || [];
+        const names = ids.map(horseLabel).join(" / ");
+        return `枠${frame} (${names})`;
+    };
     const frameOfHorse = (horseId: number) => {
         const frame = Object.entries(frameMap).find(([, ids]) => ids.includes(horseId));
         return frame ? Number(frame[0]) : 0;
@@ -724,7 +731,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                             }}
                                                         >
                                                             {horsesList.map((n) => (
-                                                                <option key={n} value={n}>{n}</option>
+                                                                <option key={n} value={n}>{n}: {horseLabel(n)}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -762,7 +769,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         }}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -787,7 +794,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         }}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -807,7 +814,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         onClick={() => isFrameType ? setAnchorFrame(n) : setAnchorHorseId(n)}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -827,7 +834,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         }}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -852,7 +859,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         }}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -872,7 +879,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                         }}
                                                                         className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                     >
-                                                                        {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                        {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                     </button>
                                                                 );
                                                             })}
@@ -894,7 +901,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                                 }}
                                                                                 className={`px-2.5 py-1 text-xs rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
                                                                             >
-                                                                                {isFrameType ? `枠${n} (${frameMap[n].join(",")})` : `馬${n}`}
+                                                                                {isFrameType ? frameLabel(n) : `${n}: ${horseLabel(n)}`}
                                                                             </button>
                                                                         );
                                                                     })}
