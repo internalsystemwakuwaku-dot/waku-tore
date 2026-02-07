@@ -941,101 +941,110 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                                     <div className="bg-gray-800/80 rounded-lg p-4 border border-gray-700 h-fit">
                                         <h3 className="text-lg font-bold mb-4">賭けの内容</h3>
-
-                                        {(betType === "WIN" || betType === "PLACE") ? (
-                                            selectedHorseId ? (
-                                            <>
-                                                <div className="mb-4">
-                                                    <div className="text-xs text-gray-400">選択中</div>
+                                        <div className="mb-3">
+                                            <div className="text-xs text-gray-400">選択内容</div>
+                                            {betType === "WIN" || betType === "PLACE" ? (
+                                                selectedHorseId ? (
                                                     <div className="font-bold">
                                                         {horses.find(h => h.id === selectedHorseId)?.name}
                                                     </div>
+                                                ) : (
+                                                    <div className="text-gray-400 text-sm">馬を選択してください</div>
+                                                )
+                                            ) : betType === "WIN5" ? (
+                                                <div className="text-sm text-gray-300">
+                                                    {win5Selections.map((n, idx) => `R${idx + 1}:${n}`).join(" / ")}
                                                 </div>
+                                            ) : (
+                                                ticketCount > 0 ? (
+                                                    <div className="text-sm text-gray-300">買い目 {ticketCount} 点</div>
+                                                ) : (
+                                                    <div className="text-gray-400 text-sm">買い目を選択してください</div>
+                                                )
+                                            )}
+                                        </div>
 
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-gray-400">BET AMOUNT</label>
-                                                    <input
-                                                        type="range"
-                                                        min="100"
-                                                        max={maxBetAmount}
-                                                        step="100"
-                                                        value={Math.min(betAmount, maxBetAmount)}
-                                                        onChange={(e) => setBetAmount(Number(e.target.value))}
-                                                        className="w-full"
-                                                    />
-                                                    <div className="flex justify-between items-center">
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => setBetAmount(Math.max(100, betAmount - 100))}
-                                                                className="px-2 py-1 bg-gray-700 rounded text-xs"
-                                                            >
-                                                                -100
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setBetAmount(Math.min(maxBetAmount, betAmount + 100))}
-                                                                className="px-2 py-1 bg-gray-700 rounded text-xs"
-                                                            >
-                                                                +100
-                                                            </button>
-                                                        </div>
-                                                        <span className="font-mono">{betAmount.toLocaleString()} G</span>
-                                                    </div>
-                                                    <p className="text-xs text-red-400">
-                                                        本日残り貸付: {remainingLoan.toLocaleString()}G
-                                                    </p>
-                                                    <div className="mt-2 text-xs text-gray-400">
-                                                        買い目数: {ticketCount}
-                                                    </div>
-                                                    <div className={`text-xs ${isBetOverLimit ? "text-red-400" : "text-gray-400"}`}>
-                                                        合計: {totalCost.toLocaleString()}G
-                                                    </div>
-                                                    <div className="mt-3 border-t border-gray-700 pt-3">
-                                                        <div className="text-xs text-gray-400 mb-1">買い目プレビュー</div>
-                                                        {ticketCount === 0 ? (
-                                                            <div className="text-xs text-gray-500">未選択</div>
-                                                        ) : (
-                                                            <div className="text-xs text-gray-300 space-y-1 max-h-24 overflow-y-auto">
-                                                                {tickets.slice(0, 10).map((t, idx) => (
-                                                                    <div key={idx}>{formatTicket(t)}</div>
-                                                                ))}
-                                                                {ticketCount > 10 && (
-                                                                    <div className="text-gray-500">...他 {ticketCount - 10} 点</div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="pt-4 border-t border-gray-700 mt-4">
-                                                    <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-gray-400">想定払戻</span>
-                                                        <span className="text-yellow-400 font-bold">
-                                                            {(() => {
-                                                                const selectedHorse = horses.find(h => h.id === selectedHorseId);
-                                                                const odds = betType === "WIN"
-                                                                    ? (selectedHorse?.odds || 2.0)
-                                                                    : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
-                                                                return Math.floor(betAmount * odds).toLocaleString();
-                                                            })()} G
-                                                        </span>
-                                                    </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-400">BET AMOUNT</label>
+                                            <input
+                                                type="range"
+                                                min="100"
+                                                max={maxBetAmount}
+                                                step="100"
+                                                value={Math.min(betAmount, maxBetAmount)}
+                                                onChange={(e) => setBetAmount(Number(e.target.value))}
+                                                className="w-full"
+                                            />
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex gap-2">
                                                     <button
-                                                        onClick={handleBet}
-                                                        disabled={isLoading || !isSelectionValid || isBetOverLimit}
-                                                        className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
+                                                        onClick={() => setBetAmount(Math.max(100, betAmount - 100))}
+                                                        className="px-2 py-1 bg-gray-700 rounded text-xs"
                                                     >
-                                                        {isLoading ? "処理中..." : "賭ける"}
+                                                        -100
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setBetAmount(Math.min(maxBetAmount, betAmount + 100))}
+                                                        className="px-2 py-1 bg-gray-700 rounded text-xs"
+                                                    >
+                                                        +100
                                                     </button>
                                                 </div>
-                                            </>
-                                        ) : (
-                                            <div className="text-gray-400 text-sm">馬を選択してください</div>
-                                        )
-                                        ) : betType === "WIN5" ? (
-                                            <div className="text-gray-400 text-sm">5レースの1着を選択してください</div>
-                                        ) : (
-                                            <div className="text-gray-400 text-sm">買い目を選択してください</div>
-                                        )}
+                                                <span className="font-mono">{betAmount.toLocaleString()} G</span>
+                                            </div>
+                                            <p className="text-xs text-red-400">
+                                                本日残り貸付: {remainingLoan.toLocaleString()}G
+                                            </p>
+                                            <div className="mt-2 text-xs text-gray-400">
+                                                買い目数: {ticketCount}
+                                            </div>
+                                            <div className={`text-xs ${isBetOverLimit ? "text-red-400" : "text-gray-400"}`}>
+                                                合計: {totalCost.toLocaleString()}G
+                                            </div>
+                                            <div className="mt-3 border-t border-gray-700 pt-3">
+                                                <div className="text-xs text-gray-400 mb-1">買い目プレビュー</div>
+                                                {ticketCount === 0 ? (
+                                                    <div className="text-xs text-gray-500">未選択</div>
+                                                ) : (
+                                                    <div className="text-xs text-gray-300 space-y-1 max-h-24 overflow-y-auto">
+                                                        {tickets.slice(0, 10).map((t, idx) => (
+                                                            <div key={idx}>{formatTicket(t)}</div>
+                                                        ))}
+                                                        {ticketCount > 10 && (
+                                                            <div className="text-gray-500">...他 {ticketCount - 10} 点</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-gray-700 mt-4">
+                                            <div className="flex justify-between text-sm mb-2">
+                                                <span className="text-gray-400">想定払戻</span>
+                                                <span className="text-yellow-400 font-bold">
+                                                    {(() => {
+                                                        if (betType === "WIN" || betType === "PLACE") {
+                                                            const selectedHorse = horses.find(h => h.id === selectedHorseId);
+                                                            const odds = betType === "WIN"
+                                                                ? (selectedHorse?.odds || 2.0)
+                                                                : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
+                                                            return Math.floor(betAmount * odds).toLocaleString();
+                                                        }
+                                                        if (betType === "WIN5") {
+                                                            return Math.floor(betAmount * 100).toLocaleString();
+                                                        }
+                                                        return "-";
+                                                    })()} G
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={handleBet}
+                                                disabled={isLoading || !isSelectionValid || isBetOverLimit}
+                                                className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
+                                            >
+                                                {isLoading ? "処理中..." : "賭ける"}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
