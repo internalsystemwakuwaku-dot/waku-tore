@@ -132,7 +132,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         } catch (err) {
             console.error("[HorseRaceModal] Failed to fetch results:", err);
             if (!resultsLoadedRef.current && todayResultsRef.current.length === 0) {
-                setResultsError("邨先棡縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆");
+                setResultsError("本日の結果の取得に失敗しました");
                 setTodayResults([]);
             }
             if (forceLoading) {
@@ -328,16 +328,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("謚慕･ｨ縺励∪縺励◆");
+                alert("賭けが完了しました");
                 setSelectedHorseId(null);
             } else {
                 playSe("cancel");
-                alert(result.error || "謚慕･ｨ縺ｫ螟ｱ謨励＠縺ｾ縺励◆");
+                alert(result.error || "賭けに失敗しました");
             }
         } catch (e) {
             console.error(e);
             playSe("cancel");
-            alert("繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆");
+            alert("エラーが発生しました");
         } finally {
             setIsLoading(false);
         }
@@ -362,14 +362,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 }
                 await fetchRace();
                 playSe("coin");
-                alert("繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺励∪縺励◆");
+                alert("キャンセルしました");
             } else {
                 playSe("cancel");
-                alert(result.error || "繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺ｫ螟ｱ謨励＠縺ｾ縺励◆");
+                alert(result.error || "キャンセルに失敗しました");
             }
         } catch (e) {
             console.error(e);
-            alert("繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆");
+            alert("エラーが発生しました");
         } finally {
             setIsLoading(false);
         }
@@ -399,7 +399,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                         <h2 className="text-xl font-bold">{race?.name || "Loading..."}</h2>
                         {phase === "betting" && (
                             <p className="text-xs text-gray-400">
-                                邱蛻・∪縺ｧ {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+                                開始まで {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
                             </p>
                         )}
                     </div>
@@ -413,9 +413,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 </div>
 
                                                                                                 <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
-                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>謚慕･ｨ</button>
-                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>邨先棡</button>
-                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>譛ｬ譌･縺ｮ邨先棡</button>
+                    <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>賭け</button>
+                    <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>レース</button>
+                    <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>本日の結果</button>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
@@ -434,13 +434,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             
                                                 className={`px-3 py-1 rounded ${betType === "WIN" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                蜊伜享
+                                                単勝
                                             </button>
                                             <button
                                                 onClick={() => setBetType("PLACE")}
                                                 className={`px-3 py-1 rounded ${betType === "PLACE" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                             >
-                                                隍・享
+                                                複勝
                                             </button>
                                         </div>
 
@@ -490,7 +490,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                                             onClick={() => handleCancelBet(bet.id as string)}
                                                                             className="text-gray-400 hover:text-red-400"
                                                                         >
-                                                                            蜿匁ｶ・
+                                                                            キャンセル
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -503,12 +503,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     </div>
 
                                     <div className="bg-gray-800/80 rounded-lg p-4 border border-gray-700 h-fit">
-                                        <h3 className="text-lg font-bold mb-4">謚慕･ｨ蜀・ｮｹ</h3>
+                                        <h3 className="text-lg font-bold mb-4">賭けの内容</h3>
 
                                         {selectedHorseId ? (
                                             <>
                                                 <div className="mb-4">
-                                                    <div className="text-xs text-gray-400">驕ｸ謚樔ｸｭ</div>
+                                                    <div className="text-xs text-gray-400">選択中</div>
                                                     <div className="font-bold">
                                                         {horses.find(h => h.id === selectedHorseId)?.name}
                                                     </div>
@@ -543,13 +543,13 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         <span className="font-mono">{betAmount.toLocaleString()} G</span>
                                                     </div>
                                                     <p className="text-xs text-red-400">
-                                                        蛟溷・谿九ｊ (譛ｬ譌･): {remainingLoan.toLocaleString()}G
+                                                        本日残り貸付: {remainingLoan.toLocaleString()}G
                                                     </p>
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700 mt-4">
                                                     <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-gray-400">諠ｳ螳壽鴛謌ｻ</span>
+                                                        <span className="text-gray-400">想定払戻</span>
                                                         <span className="text-yellow-400 font-bold">
                                                             {(() => {
                                                                 const selectedHorse = horses.find(h => h.id === selectedHorseId);
@@ -565,12 +565,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                         disabled={isLoading}
                                                         className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                                     >
-                                                        {isLoading ? "蜃ｦ逅・ｸｭ..." : "謚慕･ｨ縺吶ｋ"}
+                                                        {isLoading ? "処理中..." : "賭ける"}
                                                     </button>
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="text-gray-400 text-sm">鬥ｬ繧帝∈謚槭＠縺ｦ縺上□縺輔＞</div>
+                                            <div className="text-gray-400 text-sm">馬を選択してください</div>
                                         )}
                                     </div>
                                 </div>
@@ -578,8 +578,8 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
 
                                                         {phase !== "betting" && (
                                 <div className="text-gray-400 text-center py-10">
-                                    {phase === "loading" && "繝ｬ繝ｼ繧ｹ諠・ｱ繧貞叙蠕嶺ｸｭ..."}
-                                    {phase === "racing" && "繝ｬ繝ｼ繧ｹ騾ｲ陦御ｸｭ..."}
+                                    {phase === "loading" && "レース情報を取得中..."}
+                                    {phase === "racing" && "レース進行中..."}
                                     {phase === "result" && "結果のレースを確認しています..."}
                                     <div className="mt-4">
                                         <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">譖ｴ譁ｰ</button>
@@ -592,7 +592,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                      ) : tab === "race" ? (
                         <div className="space-y-4">
                             {phase === "betting" && (
-                                <div className="text-gray-400 text-center py-10">邨先棡縺ｯ縺ｾ縺遒ｺ螳壹＠縺ｦ縺・∪縺帙ｓ</div>
+                                <div className="text-gray-400 text-center py-10">レースはまだ開始していません</div>
                             )}
 
                             {(phase === "racing" || phase === "result") && (
@@ -645,7 +645,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     ) : (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-white font-bold text-lg">譛ｬ譌･縺ｮ繝ｬ繝ｼ繧ｹ邨先棡</h3>
+                                <h3 className="text-white font-bold text-lg">本日のレース結果</h3>
                                 <button
                                     onClick={() => fetchTodayResults(true)}
                                     className="p-2 text-xs bg-gray-700 hover:bg-gray-600 rounded-full"
@@ -663,16 +663,16 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                 </button>
                             </div>
                             {(resultsLoading || isResultsPending) ? (
-                                <div className="text-gray-400 text-center py-10">蜿門ｾ嶺ｸｭ...</div>
+                                <div className="text-gray-400 text-center py-10">読み込み中...</div>
                             ) : resultsError ? (
                                 <div className="text-red-400 text-center py-10">
                                     <p>{resultsError}</p>
                                     <button onClick={() => setTab("bet")} className="mt-4 px-4 py-2 bg-gray-700 rounded">
-                                        謌ｻ繧・
+                                        戻る
                                     </button>
                                 </div>
                             ) : todayResults.length === 0 ? (
-                                <div className="text-gray-500 text-center py-10">譛ｬ譌･縺ｮ邨先棡縺ｯ縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ</div>
+                                <div className="text-gray-500 text-center py-10">本日の結果はまだありません</div>
                             ) : (
                                 todayResults.map((r, i) => (
                                     <div key={i} className="bg-gray-800 p-4 rounded border border-gray-700">
@@ -691,7 +691,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="mt-3 text-xs text-gray-400">驟榊ｽ薙→雉ｼ蜈･荳隕ｧ</div>
+                                        <div className="mt-3 text-xs text-gray-400">払戻とユーザー一覧</div>
                                         <div className="mt-2 space-y-2">
                                             {r.bets.length === 0 ? (
                                                 <div className="text-gray-500 text-xs">該当ユーザーなし</div>
@@ -700,10 +700,10 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-gray-300">User: {b.userId}</span>
-                                                            <span className="text-yellow-300">謇輔＞謌ｻ縺・{b.totalPayout.toLocaleString()}G</span>
+                                                            <span className="text-yellow-300">払い戻し {b.totalPayout.toLocaleString()}G</span>
                                                         </div>
                                                         <div className="text-gray-400">
-                                                            謚慕･ｨ蜷郁ｨ・{b.totalBet.toLocaleString()}G
+                                                            賭け合計 {b.totalBet.toLocaleString()}G
                                                         </div>
                                                         <div className="mt-1 space-y-1">
                                                             {b.items.map((it, idx) => (
