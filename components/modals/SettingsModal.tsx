@@ -256,20 +256,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <div className="space-y-4">
                             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-bold text-gray-800">Growth Panel</h4>
-                                    <div className="text-xs text-gray-500">Balance: {gameData.money.toLocaleString()} G</div>
+                                    <h4 className="text-sm font-bold text-gray-800">成長パネル</h4>
+                                    <div className="text-xs text-gray-500">所持金: {gameData.money.toLocaleString()} G</div>
                                 </div>
                                 <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
                                     <div className="rounded-md bg-white border border-gray-200 p-2">
-                                        <div className="text-gray-500">Click Power</div>
+                                        <div className="text-gray-500">クリック</div>
                                         <div className="text-sm font-bold text-gray-800">+{clickPower} XP</div>
                                     </div>
                                     <div className="rounded-md bg-white border border-gray-200 p-2">
-                                        <div className="text-gray-500">Idle XP</div>
-                                        <div className="text-sm font-bold text-gray-800">{autoXpPerSec.toFixed(1)} XP/s</div>
+                                        <div className="text-gray-500">放置効率</div>
+                                        <div className="text-sm font-bold text-gray-800">{autoXpPerSec.toFixed(1)} XP/秒</div>
                                     </div>
                                     <div className="rounded-md bg-white border border-gray-200 p-2">
-                                        <div className="text-gray-500">Keiba Payout</div>
+                                        <div className="text-gray-500">競馬払い戻し</div>
                                         <div className="text-sm font-bold text-gray-800">+{keibaBonus}%</div>
                                     </div>
                                 </div>
@@ -291,22 +291,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 <div className="text-xs text-gray-500">Lv. {level}/{upgrade.maxLevel}</div>
                                             </div>
                                             <div className="mt-2 flex items-center justify-between">
-                                                <div className="text-xs text-gray-600">Next Upgrade: {isMax ? "MAX" : `${cost.toLocaleString()} G`}</div>
+                                                <div className="text-xs text-gray-600">次の強化: {isMax ? "MAX" : `${cost.toLocaleString()} G`}</div>
                                                 <button
                                                     disabled={isMax}
                                                     onClick={() => {
                                                         const result = purchaseGrowthUpgrade(key);
                                                         if (!result.success) {
-                                                            toast.error(result.message || "Upgrade failed");
+                                                            toast.error(result.message || "強化に失敗しました");
                                                         } else {
-                                                            toast.success("Upgraded");
+                                                            toast.success("強化しました");
                                                         }
                                                     }}
                                                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${isMax
                                                         ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                                                         : "bg-blue-500 text-white hover:bg-blue-600"}`}
                                                 >
-                                                    Upgrade
+                                                    強化する
                                                 </button>
                                             </div>
                                         </div>

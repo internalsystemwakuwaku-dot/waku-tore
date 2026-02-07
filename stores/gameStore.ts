@@ -7,27 +7,27 @@ import { toast } from "@/components/ui/Toast";
 export const GROWTH_UPGRADES = {
     click: {
         id: "growth_click",
-        name: "Click Boost",
+        name: "クリック強化",
         baseCost: 150,
         costGrowth: 1.35,
         maxLevel: 25,
-        effectLabel: "+1 XP per click",
+        effectLabel: "+1 XP/クリック",
     },
     auto: {
         id: "growth_auto",
-        name: "Idle Boost",
+        name: "放置強化",
         baseCost: 300,
         costGrowth: 1.4,
         maxLevel: 20,
-        effectLabel: "+10% idle XP",
+        effectLabel: "+10% 放置XP",
     },
     keiba: {
         id: "growth_keiba",
-        name: "Keiba Boost",
+        name: "競馬強化",
         baseCost: 800,
         costGrowth: 1.45,
         maxLevel: 20,
-        effectLabel: "+5% payout",
+        effectLabel: "+5% 払い戻し",
     },
 } as const;
 
@@ -740,11 +740,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         const upgrade = GROWTH_UPGRADES[key];
         const currentLevel = data.inventory[upgrade.id] || 0;
         if (currentLevel >= upgrade.maxLevel) {
-            return { success: false, message: "Already max level" };
+            return { success: false, message: "これ以上強化できません" };
         }
         const cost = get().getGrowthUpgradeCost(key);
         if (data.money < cost) {
-            return { success: false, message: "Not enough money" };
+            return { success: false, message: "お金が足りません" };
         }
 
         get().addMoney(-cost);

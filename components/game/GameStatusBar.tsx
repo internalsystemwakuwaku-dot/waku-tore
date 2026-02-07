@@ -91,7 +91,7 @@ export function GameStatusBar({ onOpenShop, onOpenRanking, onOpenKeiba, onOpenGa
                     🍪
                 </button>
                 <div className="text-xs text-gray-500 hidden sm:block">
-                    <div>Click: +{clickPower} XP</div>
+                    <div>クリック: +{clickPower} XP</div>
                 </div>
             </div>
 
