@@ -943,7 +943,8 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     <div className="bg-gray-800/80 rounded-lg p-4 border border-gray-700 h-fit">
                                         <h3 className="text-lg font-bold mb-4">賭けの内容</h3>
 
-                                        {selectedHorseId ? (
+                                        {(betType === "WIN" || betType === "PLACE") ? (
+                                            selectedHorseId ? (
                                             <>
                                                 <div className="mb-4">
                                                     <div className="text-xs text-gray-400">選択中</div>
@@ -1030,6 +1031,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             </>
                                         ) : (
                                             <div className="text-gray-400 text-sm">馬を選択してください</div>
+                                        )
+                                        ) : betType === "WIN5" ? (
+                                            <div className="text-gray-400 text-sm">5レースの1着を選択してください</div>
+                                        ) : (
+                                            <div className="text-gray-400 text-sm">買い目を選択してください</div>
                                         )}
                                     </div>
                                 </div>
