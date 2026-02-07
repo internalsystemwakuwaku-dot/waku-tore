@@ -626,24 +626,26 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         : betType === "WIN5"
             ? win5Selections.length === 5
             : ticketCount > 0;
-    const expectedPayout = (() => {
+    const expectedPayouts = (() => {
         if (betType === "WIN" || betType === "PLACE") {
             const selectedHorse = horses.find(h => h.id === selectedHorseId);
             const odds = betType === "WIN"
                 ? (selectedHorse?.odds || 2.0)
                 : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
-            return Math.floor(betAmount * odds);
+            return selectedHorseId ? [Math.floor(betAmount * odds)] : [];
         }
         if (betType === "WIN5") {
-            return Math.floor(betAmount * (typeMultiplier.WIN5 || 100));
+            return win5Selections.length === 5 ? [Math.floor(betAmount * (typeMultiplier.WIN5 || 100))] : [];
         }
-        if (tickets.length === 0) return 0;
+        if (tickets.length === 0) return [];
         const mult = typeMultiplier[betType] || 1;
-        return tickets.reduce((sum, t) => {
+        return tickets.map((t) => {
             const avgOdds = calcAvgOdds(t, isFrameType);
-            return sum + Math.floor(betAmount * avgOdds * mult);
-        }, 0);
+            return Math.floor(betAmount * avgOdds * mult);
+        });
     })();
+    const expectedPayoutMin = expectedPayouts.length > 0 ? Math.min(...expectedPayouts) : 0;
+    const expectedPayoutMax = expectedPayouts.length > 0 ? Math.max(...expectedPayouts) : 0;
 
     useEffect(() => {
         if (betAmount > maxBetAmount) {
@@ -1058,7 +1060,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 ) : (
                                                     <div className="text-xs text-gray-300 space-y-1 max-h-24 overflow-y-auto">
                                                         {tickets.slice(0, 10).map((t, idx) => (
-                                                            <div key={idx}>{formatTicket(t)}</div>
+                                                            <div key={idx} className="flex justify-between gap-2">
+                                                                <span>{formatTicket(t)}</span>
+                                                                <span className="text-gray-400">
+                                                                    {expectedPayouts[idx] ? expectedPayouts[idx].toLocaleString() : "-"}G
+                                                                </span>
+                                                            </div>
                                                         ))}
                                                         {ticketCount > 10 && (
                                                             <div className="text-gray-500">...他 {ticketCount - 10} 点</div>
@@ -1072,7 +1079,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             <div className="flex justify-between text-sm mb-2">
                                                 <span className="text-gray-400">想定払戻</span>
                                                 <span className="text-yellow-400 font-bold">
-                                                    {expectedPayout > 0 ? expectedPayout.toLocaleString() : "-"} G
+                                                    {expectedPayoutMin > 0 ? `${expectedPayoutMin.toLocaleString()} - ${expectedPayoutMax.toLocaleString()}` : "-"} G
                                                 </span>
                                             </div>
                                             <button
