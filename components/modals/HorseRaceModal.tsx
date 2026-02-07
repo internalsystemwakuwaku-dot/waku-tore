@@ -598,7 +598,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             {(phase === "racing" || phase === "result") && (
                                 <div className="space-y-4">
                                     <div className="text-center text-gray-400">
-                                        {phase === "racing" ? "繝ｬ繝ｼ繧ｹ騾ｲ陦御ｸｭ..." : "邨先棡遒ｺ螳・}
+                                        {phase === "racing" ? "レース進行中..." : "レース終了"}
                                     </div>
 
                                     <div className="space-y-2">
