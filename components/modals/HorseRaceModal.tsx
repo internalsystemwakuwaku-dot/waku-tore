@@ -21,8 +21,20 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const [myBets, setMyBets] = useState<Bet[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    const [betType, setBetType] = useState<"WIN" | "PLACE">("WIN");
+    const [betType, setBetType] = useState<"WIN" | "PLACE" | "FRAME" | "QUINELLA" | "EXACTA" | "WIDE" | "TRIO" | "TRIFECTA" | "WIN5">("WIN");
+    const [betMethod, setBetMethod] = useState<"normal" | "box" | "nagashi" | "formation">("normal");
     const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
+    const [selectedHorseIds, setSelectedHorseIds] = useState<number[]>([]);
+    const [selectedFrames, setSelectedFrames] = useState<number[]>([]);
+    const [anchorHorseId, setAnchorHorseId] = useState<number | null>(null);
+    const [anchorFrame, setAnchorFrame] = useState<number | null>(null);
+    const [formationA, setFormationA] = useState<number[]>([]);
+    const [formationB, setFormationB] = useState<number[]>([]);
+    const [formationC, setFormationC] = useState<number[]>([]);
+    const [formationFrameA, setFormationFrameA] = useState<number[]>([]);
+    const [formationFrameB, setFormationFrameB] = useState<number[]>([]);
+    const [formationFrameC, setFormationFrameC] = useState<number[]>([]);
+    const [win5Selections, setWin5Selections] = useState<number[]>([1, 1, 1, 1, 1]);
     const [betAmount, setBetAmount] = useState<number>(100);
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
@@ -162,6 +174,23 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
         }
     }, [phase]);
 
+    useEffect(() => {
+        if (betType === "WIN" || betType === "PLACE" || betType === "WIN5") {
+            setBetMethod("normal");
+        }
+        setSelectedHorseId(null);
+        setSelectedHorseIds([]);
+        setSelectedFrames([]);
+        setAnchorHorseId(null);
+        setAnchorFrame(null);
+        setFormationA([]);
+        setFormationB([]);
+        setFormationC([]);
+        setFormationFrameA([]);
+        setFormationFrameB([]);
+        setFormationFrameC([]);
+    }, [betType]);
+
     const handleClose = () => {
         if (phase === "racing") return;
         onClose();
@@ -292,7 +321,18 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     }, [phase, gameUser.userId, isOpen, playBgm, playSe, stopBgm, setData, startRiggedAnimation]);
 
     const handleBet = async () => {
-        if (!race || !selectedHorseId || isLoading) return;
+        if (!race || isLoading) return;
+        if (betType === "WIN" || betType === "PLACE") {
+            if (!selectedHorseId) return;
+        } else if (betType === "WIN5") {
+            if (win5Selections.length !== 5) return;
+        } else {
+            if (tickets.length === 0) return;
+        }
+        if (isBetOverLimit) {
+            alert("所持金が不足しています");
+            return;
+        }
         setIsLoading(true);
         playSe("decide");
 
@@ -301,19 +341,33 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             const selectedHorse = horses.find(h => h.id === selectedHorseId);
             const currentOdds = betType === "WIN"
                 ? (selectedHorse?.odds || 2.0)
-                : Math.max(1.0, (selectedHorse?.odds || 3.0) / 3);
+                : betType === "PLACE"
+                    ? Math.max(1.0, (selectedHorse?.odds || 3.0) / 3)
+                    : 0;
+
+            const betMode = betMethod === "normal"
+                ? "NORMAL"
+                : betMethod === "box"
+                    ? "BOX"
+                    : betMethod === "nagashi"
+                        ? "NAGASHI"
+                        : "FORMATION";
 
             const betDetails = JSON.stringify({
-                horses: [selectedHorseId],
+                type: betType,
+                method: betMethod,
+                tickets,
+                baseAmount: betAmount,
                 odds: currentOdds,
             });
 
+            const primaryHorseId = selectedHorseId ?? tickets[0]?.[0] ?? 0;
             const result = await placeBet(gameUser.userId, race.id, [{
                 type: betType,
-                mode: "NORMAL",
-                horseId: selectedHorseId,
+                mode: betMode,
+                horseId: primaryHorseId,
                 details: betDetails,
-                amount: betAmount,
+                amount: totalCost,
             }]);
 
             if (result.success) {
@@ -389,7 +443,149 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const remainingLoan = Math.max(0, DAILY_LOAN_LIMIT - loanUsedToday);
     const maxBetByDebtLimit = gameUser.money - DEBT_LIMIT;
     const maxBetByDailyLoan = Math.max(0, gameUser.money) + remainingLoan;
-    const maxBetAmount = Math.min(Math.max(100, Math.min(maxBetByDebtLimit, maxBetByDailyLoan)), 100000);
+    const maxTotalBet = Math.min(maxBetByDebtLimit, maxBetByDailyLoan);
+
+    const horsesList = horses.length > 0 ? horses.map(h => h.id) : [1, 2, 3, 4, 5, 6, 7, 8];
+    const framesList = [1, 2, 3, 4];
+    const isPairType = ["FRAME", "QUINELLA", "EXACTA", "WIDE"].includes(betType);
+    const isTripleType = ["TRIO", "TRIFECTA"].includes(betType);
+    const isOrderedType = ["EXACTA", "TRIFECTA"].includes(betType);
+    const selectionSize = betType === "WIN" || betType === "PLACE" ? 1 : isTripleType ? 3 : isPairType ? 2 : betType === "WIN5" ? 5 : 1;
+    const isFrameType = betType === "FRAME";
+
+    const uniqueSorted = (arr: number[]) => Array.from(new Set(arr)).sort((a, b) => a - b);
+    const combinations = (arr: number[], k: number) => {
+        const result: number[][] = [];
+        const helper = (start: number, combo: number[]) => {
+            if (combo.length === k) {
+                result.push([...combo]);
+                return;
+            }
+            for (let i = start; i < arr.length; i++) {
+                combo.push(arr[i]);
+                helper(i + 1, combo);
+                combo.pop();
+            }
+        };
+        helper(0, []);
+        return result;
+    };
+    const permutations = (arr: number[], k: number) => {
+        const result: number[][] = [];
+        const used = new Array(arr.length).fill(false);
+        const helper = (combo: number[]) => {
+            if (combo.length === k) {
+                result.push([...combo]);
+                return;
+            }
+            for (let i = 0; i < arr.length; i++) {
+                if (used[i]) continue;
+                used[i] = true;
+                combo.push(arr[i]);
+                helper(combo);
+                combo.pop();
+                used[i] = false;
+            }
+        };
+        helper([]);
+        return result;
+    };
+
+    const buildTickets = () => {
+        if (betType === "WIN5") {
+            return [win5Selections.slice(0, 5)];
+        }
+        if (betType === "WIN" || betType === "PLACE") {
+            return selectedHorseId ? [[selectedHorseId]] : [];
+        }
+        const baseList = isFrameType ? framesList : horsesList;
+        const pickNormal = isFrameType ? selectedFrames : selectedHorseIds;
+        const anchor = isFrameType ? anchorFrame : anchorHorseId;
+        const formA = isFrameType ? formationFrameA : formationA;
+        const formB = isFrameType ? formationFrameB : formationB;
+        const formC = isFrameType ? formationFrameC : formationC;
+
+        if (betMethod === "normal") {
+            if (pickNormal.length !== selectionSize) return [];
+            const ticket = isOrderedType ? pickNormal : uniqueSorted(pickNormal);
+            return [ticket];
+        }
+        if (betMethod === "box") {
+            if (pickNormal.length < selectionSize) return [];
+            return isOrderedType ? permutations(uniqueSorted(pickNormal), selectionSize) : combinations(uniqueSorted(pickNormal), selectionSize);
+        }
+        if (betMethod === "nagashi") {
+            if (!anchor) return [];
+            const others = uniqueSorted(pickNormal.filter(n => n !== anchor));
+            if (isPairType) {
+                if (isOrderedType) {
+                    return others.map(o => [anchor, o]);
+                }
+                const seen = new Set<string>();
+                const tickets: number[][] = [];
+                for (const o of others) {
+                    const ticket = [anchor, o].sort((a, b) => a - b);
+                    const key = ticket.join("-");
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        tickets.push(ticket);
+                    }
+                }
+                return tickets;
+            }
+            if (isTripleType) {
+                const combos = isOrderedType ? permutations(others, 2) : combinations(others, 2);
+                return combos.map(c => {
+                    const ticket = [anchor, ...c];
+                    return isOrderedType ? ticket : uniqueSorted(ticket);
+                });
+            }
+        }
+        if (betMethod === "formation") {
+            if (isPairType) {
+                const tickets: number[][] = [];
+                for (const a of formA) {
+                    for (const b of formB) {
+                        if (a === b) continue;
+                        const ticket = isOrderedType ? [a, b] : uniqueSorted([a, b]);
+                        tickets.push(ticket);
+                    }
+                }
+                return tickets;
+            }
+            if (isTripleType) {
+                const tickets: number[][] = [];
+                for (const a of formA) {
+                    for (const b of formB) {
+                        for (const c of formC) {
+                            if (a === b || b === c || a === c) continue;
+                            const ticket = isOrderedType ? [a, b, c] : uniqueSorted([a, b, c]);
+                            tickets.push(ticket);
+                        }
+                    }
+                }
+                return tickets;
+            }
+        }
+        return [];
+    };
+
+    const tickets = buildTickets();
+    const ticketCount = tickets.length;
+    const maxBetAmount = Math.min(Math.max(100, Math.floor(maxTotalBet / Math.max(1, ticketCount))), 100000);
+    const totalCost = ticketCount === 0 ? 0 : betAmount * ticketCount;
+    const isBetOverLimit = totalCost > maxTotalBet;
+    const isSelectionValid = betType === "WIN" || betType === "PLACE"
+        ? !!selectedHorseId
+        : betType === "WIN5"
+            ? win5Selections.length === 5
+            : ticketCount > 0;
+
+    useEffect(() => {
+        if (betAmount > maxBetAmount) {
+            setBetAmount(maxBetAmount);
+        }
+    }, [betAmount, maxBetAmount]);
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -428,46 +624,261 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                             {phase === "betting" && race && (
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div className="lg:col-span-2 space-y-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setBetType("WIN")}
-                            
-                                                className={`px-3 py-1 rounded ${betType === "WIN" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
-                                            >
-                                                単勝
-                                            </button>
-                                            <button
-                                                onClick={() => setBetType("PLACE")}
-                                                className={`px-3 py-1 rounded ${betType === "PLACE" ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
-                                            >
-                                                複勝
-                                            </button>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {horses.map((horse) => (
+                                        <div className="flex flex-wrap gap-2">
+                                            {([
+                                                { key: "WIN", label: "単勝" },
+                                                { key: "PLACE", label: "複勝" },
+                                                { key: "FRAME", label: "枠連" },
+                                                { key: "QUINELLA", label: "馬連" },
+                                                { key: "EXACTA", label: "馬単" },
+                                                { key: "WIDE", label: "ワイド" },
+                                                { key: "TRIO", label: "3連複" },
+                                                { key: "TRIFECTA", label: "3連単" },
+                                                { key: "WIN5", label: "WIN5" },
+                                            ] as const).map((t) => (
                                                 <button
-                                                    key={horse.id}
-                                                    onClick={() => setSelectedHorseId(horse.id)}
-                                                    className={`w-full text-left p-3 rounded border ${selectedHorseId === horse.id ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                    key={t.key}
+                                                    onClick={() => setBetType(t.key)}
+                                                    className={`px-3 py-1 rounded ${betType === t.key ? "bg-yellow-500 text-black" : "bg-gray-800 text-gray-300"}`}
                                                 >
-                                                    <div className="flex items-center justify-between">
-                                                        <div>
-                                                            <div className="font-bold">{horse.name}</div>
-                                                            <div className="text-xs text-gray-400">ID: {horse.id}</div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-xs text-gray-400">ODDS</div>
-                                                            <div className="font-mono text-yellow-400">
-                                                                {betType === "WIN"
-                                                                    ? horse.odds.toFixed(1)
-                                                                    : Math.max(1.0, horse.odds / 3).toFixed(1)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                    {t.label}
                                                 </button>
                                             ))}
                                         </div>
+
+                                        {betType !== "WIN" && betType !== "PLACE" && betType !== "WIN5" && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {([
+                                                    { key: "normal", label: "通常" },
+                                                    { key: "box", label: "ボックス" },
+                                                    { key: "nagashi", label: "流し" },
+                                                    { key: "formation", label: "フォーメーション" },
+                                                ] as const).map((m) => (
+                                                    <button
+                                                        key={m.key}
+                                                        onClick={() => setBetMethod(m.key)}
+                                                        className={`px-3 py-1 rounded ${betMethod === m.key ? "bg-blue-500 text-white" : "bg-gray-800 text-gray-300"}`}
+                                                    >
+                                                        {m.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {(betType === "WIN" || betType === "PLACE") && (
+                                            <div className="space-y-2">
+                                                {horses.map((horse) => (
+                                                    <button
+                                                        key={horse.id}
+                                                        onClick={() => setSelectedHorseId(horse.id)}
+                                                        className={`w-full text-left p-3 rounded border ${selectedHorseId === horse.id ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <div className="font-bold">{horse.name}</div>
+                                                                <div className="text-xs text-gray-400">ID: {horse.id}</div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-xs text-gray-400">ODDS</div>
+                                                                <div className="font-mono text-yellow-400">
+                                                                    {betType === "WIN"
+                                                                        ? horse.odds.toFixed(1)
+                                                                        : Math.max(1.0, horse.odds / 3).toFixed(1)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {betType === "WIN5" && (
+                                            <div className="space-y-2">
+                                                {[0, 1, 2, 3, 4].map((i) => (
+                                                    <div key={i} className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-400 w-16">R{i + 1}</span>
+                                                        <select
+                                                            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                                                            value={win5Selections[i] ?? 1}
+                                                            onChange={(e) => {
+                                                                const next = [...win5Selections];
+                                                                next[i] = Number(e.target.value);
+                                                                setWin5Selections(next);
+                                                            }}
+                                                        >
+                                                            {horsesList.map((n) => (
+                                                                <option key={n} value={n}>{n}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {betType !== "WIN" && betType !== "PLACE" && betType !== "WIN5" && (
+                                            <div className="space-y-3">
+                                                {betMethod === "normal" && (
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs text-gray-400">選択順が買い目になります</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? selectedFrames.includes(n) : selectedHorseIds.includes(n);
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => {
+                                                                            const current = isFrameType ? selectedFrames : selectedHorseIds;
+                                                                            const next = current.includes(n)
+                                                                                ? current.filter(v => v !== n)
+                                                                                : [...current, n].slice(-selectionSize);
+                                                                            if (isFrameType) setSelectedFrames(next);
+                                                                            else setSelectedHorseIds(next);
+                                                                        }}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {betMethod === "box" && (
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs text-gray-400">選択した全組み合わせ</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? selectedFrames.includes(n) : selectedHorseIds.includes(n);
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => {
+                                                                            const current = isFrameType ? selectedFrames : selectedHorseIds;
+                                                                            const next = current.includes(n) ? current.filter(v => v !== n) : [...current, n];
+                                                                            if (isFrameType) setSelectedFrames(next);
+                                                                            else setSelectedHorseIds(next);
+                                                                        }}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {betMethod === "nagashi" && (
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs text-gray-400">軸</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? anchorFrame === n : anchorHorseId === n;
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => isFrameType ? setAnchorFrame(n) : setAnchorHorseId(n)}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400">相手</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? selectedFrames.includes(n) : selectedHorseIds.includes(n);
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => {
+                                                                            const current = isFrameType ? selectedFrames : selectedHorseIds;
+                                                                            const next = current.includes(n) ? current.filter(v => v !== n) : [...current, n];
+                                                                            if (isFrameType) setSelectedFrames(next);
+                                                                            else setSelectedHorseIds(next);
+                                                                        }}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {betMethod === "formation" && (
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs text-gray-400">1列目</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? formationFrameA.includes(n) : formationA.includes(n);
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => {
+                                                                            const current = isFrameType ? formationFrameA : formationA;
+                                                                            const next = current.includes(n) ? current.filter(v => v !== n) : [...current, n];
+                                                                            if (isFrameType) setFormationFrameA(next);
+                                                                            else setFormationA(next);
+                                                                        }}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400">2列目</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                const selected = isFrameType ? formationFrameB.includes(n) : formationB.includes(n);
+                                                                return (
+                                                                    <button
+                                                                        key={n}
+                                                                        onClick={() => {
+                                                                            const current = isFrameType ? formationFrameB : formationB;
+                                                                            const next = current.includes(n) ? current.filter(v => v !== n) : [...current, n];
+                                                                            if (isFrameType) setFormationFrameB(next);
+                                                                            else setFormationB(next);
+                                                                        }}
+                                                                        className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                    >
+                                                                        {isFrameType ? `枠${n}` : n}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        {isTripleType && (
+                                                            <>
+                                                                <div className="text-xs text-gray-400">3列目</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {(isFrameType ? framesList : horsesList).map((n) => {
+                                                                        const selected = isFrameType ? formationFrameC.includes(n) : formationC.includes(n);
+                                                                        return (
+                                                                            <button
+                                                                                key={n}
+                                                                                onClick={() => {
+                                                                                    const current = isFrameType ? formationFrameC : formationC;
+                                                                                    const next = current.includes(n) ? current.filter(v => v !== n) : [...current, n];
+                                                                                    if (isFrameType) setFormationFrameC(next);
+                                                                                    else setFormationC(next);
+                                                                                }}
+                                                                                className={`px-3 py-1 rounded border ${selected ? "border-yellow-400 bg-yellow-400/10" : "border-gray-700 bg-gray-800/50"}`}
+                                                                            >
+                                                                                {isFrameType ? `枠${n}` : n}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {myBets.length > 0 && (
                                             <div className="mt-4 border-t border-gray-700 pt-4">
@@ -545,6 +956,12 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     <p className="text-xs text-red-400">
                                                         本日残り貸付: {remainingLoan.toLocaleString()}G
                                                     </p>
+                                                    <div className="mt-2 text-xs text-gray-400">
+                                                        買い目数: {ticketCount}
+                                                    </div>
+                                                    <div className={`text-xs ${isBetOverLimit ? "text-red-400" : "text-gray-400"}`}>
+                                                        合計: {totalCost.toLocaleString()}G
+                                                    </div>
                                                 </div>
 
                                                 <div className="pt-4 border-t border-gray-700 mt-4">
@@ -562,7 +979,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                     </div>
                                                     <button
                                                         onClick={handleBet}
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || !isSelectionValid || isBetOverLimit}
                                                         className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                                     >
                                                         {isLoading ? "処理中..." : "賭ける"}

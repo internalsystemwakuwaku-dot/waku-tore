@@ -22,8 +22,8 @@ export interface Race {
     ranking?: number[];
 }
 
-export type BetType = "WIN" | "PLACE" | "QUINELLA" | "EXACTA" | "TRIO" | "TRIFECTA";
-export type BetMode = "NORMAL" | "BOX" | "NAGASHI";
+export type BetType = "WIN" | "PLACE" | "FRAME" | "QUINELLA" | "EXACTA" | "WIDE" | "TRIO" | "TRIFECTA" | "WIN5";
+export type BetMode = "NORMAL" | "BOX" | "NAGASHI" | "FORMATION";
 
 export interface Bet {
     id?: string;
