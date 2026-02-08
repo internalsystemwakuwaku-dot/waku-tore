@@ -7,7 +7,7 @@ import { useBoardStore } from "@/stores/boardStore";
  * 説明詳細サイドバー
  */
 export function DescriptionSidebar() {
-    const { ui, data, filters, setFilter, setViewingDescriptionCard } = useBoardStore();
+    const { ui, data, filters, setFilter, setViewingDescriptionCard, setEditingCard } = useBoardStore();
     const cardId = ui.viewingDescriptionCardId;
     const searchQuery = filters.search || "";
 
@@ -127,24 +127,39 @@ export function DescriptionSidebar() {
                 <div className="flex-1 overflow-y-auto bg-gray-100 p-4 custom-scrollbar">
                     {searchQuery.trim() ? (
                         groupedResults.length > 0 ? (
-                            <div className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="space-y-4">
                                 {groupedResults.map((group) => (
-                                    <div key={group.list.id} className="border-b border-gray-100 last:border-0">
-                                        <div className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-50">
+                                    <div key={group.list.id} className="bg-white rounded shadow-sm border border-gray-200 overflow-hidden">
+                                        <div className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-50 border-b border-gray-100">
                                             {group.list.name}
                                         </div>
-                                        {group.cards.map((resCard) => (
-                                            <button
-                                                key={resCard.id}
-                                                className="w-full text-left px-4 py-2 hover:bg-blue-50 border-t border-gray-100 text-sm"
-                                                onClick={() => {
-                                                    setViewingDescriptionCard(resCard.id);
-                                                    setFilter("search", "");
-                                                }}
-                                            >
-                                                {resCard.name}
-                                            </button>
-                                        ))}
+                                        <div className="p-3 grid gap-2">
+                                            {group.cards.map((resCard) => (
+                                                <div
+                                                    key={resCard.id}
+                                                    className="bg-white rounded-lg shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 p-3 cursor-pointer"
+                                                    onClick={() => {
+                                                        setEditingCard(resCard.id);
+                                                    }}
+                                                >
+                                                    <div className="text-sm font-medium text-gray-800 leading-snug">
+                                                        {resCard.name}
+                                                    </div>
+                                                    {resCard.trelloLabels.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                            {resCard.trelloLabels.map((label, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className={`h-2 rounded-full label-${label.color || "gray"}`}
+                                                                    style={{ width: label.name ? "auto" : "28px", minWidth: "28px", padding: label.name ? "0 6px" : 0 }}
+                                                                    title={label.name}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
