@@ -259,7 +259,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {ui.isBulkMode && selectedCount > 0 && (
                             <div className="flex gap-1">
                                 <button className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded text-sm font-medium transition-colors">
-                                    移勁E
+                                    移動
                                 </button>
                                 <button
                                     onClick={clearSelection}
@@ -331,7 +331,7 @@ export function BoardClient({ user }: BoardClientProps) {
                             onClick={() => setShowSettingsModal(true)}
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
                         >
-                            ⚙︁E設宁E
+                            ⚙ 設定
                         </button>
 
                         {/* 区切り線*/}
