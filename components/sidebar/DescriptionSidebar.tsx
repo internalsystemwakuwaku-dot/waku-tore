@@ -138,9 +138,7 @@ export function DescriptionSidebar() {
                                                 <div
                                                     key={resCard.id}
                                                     className="bg-white rounded-lg shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 p-3 cursor-pointer"
-                                                    onClick={() => {
-                                                        setEditingCard(resCard.id);
-                                                    }}
+                                                    onClick={() => setEditingCard(resCard.id)}
                                                 >
                                                     <div className="text-sm font-medium text-gray-800 leading-snug">
                                                         {resCard.name}
@@ -157,6 +155,45 @@ export function DescriptionSidebar() {
                                                             ))}
                                                         </div>
                                                     )}
+                                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                                        <button
+                                                            className="py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setViewingDescriptionCard(resCard.id);
+                                                                setFilter("search", "");
+                                                            }}
+                                                        >
+                                                            説明詳細
+                                                        </button>
+                                                        <button
+                                                            className="py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingCard(resCard.id, "move");
+                                                            }}
+                                                        >
+                                                            移動
+                                                        </button>
+                                                        <button
+                                                            className="py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingCard(resCard.id);
+                                                            }}
+                                                        >
+                                                            設定
+                                                        </button>
+                                                        <a
+                                                            href={resCard.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors text-center"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            Trello
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
