@@ -159,7 +159,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const { config } = useThemeStore();
 
     return (
-        <div className={`min-h-screen ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
+        <div className={`min-h-screen flex flex-col ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
             {/* テーマ背景 */}
             <ThemeBackground />
 
@@ -321,7 +321,7 @@ export function BoardClient({ user }: BoardClientProps) {
             </header>
 
             {/* メインコンテンツ */}
-            <main className="max-w-[1920px] mx-auto px-4 py-4">
+            <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto px-4 py-4 overflow-hidden">
                 <BoardView user={user} />
             </main>
 

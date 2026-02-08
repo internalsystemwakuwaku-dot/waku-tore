@@ -193,7 +193,7 @@ export function BoardView({ user }: BoardViewProps) {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div ref={scrollRef} className="overflow-x-auto pb-4 -mx-4 px-4 cursor-grab">
+            <div ref={scrollRef} className="h-full overflow-x-auto pb-4 -mx-4 px-4 cursor-grab">
                 <div className="flex gap-4 min-w-max">
                     {data.lists
                         .filter((list) => !ui.hiddenListIds.has(list.id))

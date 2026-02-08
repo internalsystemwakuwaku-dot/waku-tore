@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useBoardStore } from "@/stores/boardStore";
 
 /**
@@ -9,10 +9,9 @@ import { useBoardStore } from "@/stores/boardStore";
  * ユーザー要望によりSankou-gasの挙動（プレーンテキスト+単純リンク化、検索機能付き）を再現
  */
 export function DescriptionSidebar() {
-    const { ui, data, setViewingDescriptionCard } = useBoardStore();
+    const { ui, data, filters, setFilter, setViewingDescriptionCard } = useBoardStore();
     const cardId = ui.viewingDescriptionCardId;
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const searchQuery = filters.search || "";
 
     // 表示対象のカードID（検索結果から選択された場合はそちらを優先できるが、
     // 現状は store の viewingDescriptionCardId が正とする）
@@ -25,17 +24,20 @@ export function DescriptionSidebar() {
     }, [data, effectiveCardId]);
 
     // 検索ロジック
-    useEffect(() => {
-        if (!data || !searchQuery.trim()) {
-            setSearchResults([]);
-            return;
-        }
+    const groupedResults = useMemo(() => {
+        if (!data || !searchQuery.trim()) return [];
         const query = searchQuery.toLowerCase();
         const results = data.cards.filter(c =>
             (c.name || "").toLowerCase().includes(query)
         );
-        setSearchResults(results);
-    }, [searchQuery, data]);
+
+        const grouped = data.lists.map(list => ({
+            list,
+            cards: results.filter(card => card.idList === list.id),
+        }));
+
+        return grouped.filter(group => group.cards.length > 0);
+    }, [data, searchQuery]);
 
     // 説明文のレンダリング（Sankou-gasロジック再現）
     // 単純な改行反映と、URLの自動リンク化のみを行う
@@ -83,7 +85,7 @@ export function DescriptionSidebar() {
 
     const closeSidebar = () => {
         setViewingDescriptionCard(null);
-        setSearchQuery("");
+        setFilter("search", "");
     };
 
     if (!ui.viewingDescriptionCardId && !effectiveCardId && !searchQuery.trim()) return null;
@@ -114,7 +116,7 @@ export function DescriptionSidebar() {
                             placeholder="店舗名で検索..."
                             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => setFilter("search", e.target.value)}
                         />
                         <span className="absolute left-2.5 top-2 text-gray-400">
                             <svg
@@ -134,23 +136,30 @@ export function DescriptionSidebar() {
                     </div>
 
                     {/* 検索結果リスト */}
-                    {searchQuery.trim() && searchResults.length === 0 && (
+                    {searchQuery.trim() && groupedResults.length === 0 && (
                         <div className="absolute left-0 right-0 mt-1 mx-3 bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs text-gray-500 z-20">
                             {"\u691c\u7d22\u7d50\u679c\u304c\u3042\u308a\u307e\u305b\u3093"}
                         </div>
                     )}
-                    {searchResults.length > 0 && (
+                    {groupedResults.length > 0 && (
                         <div className="absolute left-0 right-0 mt-1 mx-3 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto z-20">
-                            {searchResults.map(resCard => (
-                                <div
-                                    key={resCard.id}
-                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 text-sm"
-                                    onClick={() => {
-                                        setViewingDescriptionCard(resCard.id);
-                                        setSearchQuery("");
-                                    }}
-                                >
-                                    {resCard.name}
+                            {groupedResults.map(group => (
+                                <div key={group.list.id} className="border-b border-gray-100 last:border-0">
+                                    <div className="px-3 py-2 text-xs font-bold text-gray-600 bg-gray-50">
+                                        {group.list.name}
+                                    </div>
+                                    {group.cards.map(resCard => (
+                                        <div
+                                            key={resCard.id}
+                                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-t border-gray-100 text-sm"
+                                            onClick={() => {
+                                                setViewingDescriptionCard(resCard.id);
+                                                setFilter("search", "");
+                                            }}
+                                        >
+                                            {resCard.name}
+                                        </div>
+                                    ))}
                                 </div>
                             ))}
                         </div>
