@@ -531,7 +531,7 @@ async function resolveRace(raceId: string) {
                     status: "calculating",
                     finishedAt: new Date().toISOString(),
                 })
-                .where(and(eq(keibaRaces.id, raceId), eq(keibaRaces.status, "waiting")))
+                .where(and(eq(keibaRaces.id, raceId), or(eq(keibaRaces.status, "waiting"), eq(keibaRaces.status, "calculating"))))
                 .returning();
 
             if (updatedRows.length === 0) return null;
@@ -556,6 +556,23 @@ async function resolveRace(raceId: string) {
         });
     } catch (error) {
         console.error(`[resolveRace] Error resolving race ${raceId}:`, error);
+
+        // Recovery: Reset to waiting and log error
+        try {
+            await db.transaction(async (tx) => {
+                await tx.update(keibaRaces)
+                    .set({ status: "waiting" })
+                    .where(eq(keibaRaces.id, raceId));
+
+                // Log to activity_logs is not directly available via tx? 
+                // We can use the imported db or tx if available. logActivity uses db.
+                // We'll separate logActivity from this short tx.
+            });
+            await logActivity("SYSTEM", `Race resolution failed ${raceId}: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (recoveryError) {
+            console.error("[resolveRace] Recovery failed:", recoveryError);
+        }
+
         throw error;
     }
 }
@@ -1020,24 +1037,37 @@ export async function getTodayRaceResults(): Promise<{
         const m = jstParts.find(p => p.type === "month")?.value || "01";
         const d = jstParts.find(p => p.type === "day")?.value || "01";
         const todayPrefix = `${y}${m}${d}_%`;
-        const jstStart = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
-        const jstEnd = new Date(jstStart);
-        jstEnd.setDate(jstEnd.getDate() + 1);
-        const startIso = jstStart.toISOString();
-        const endIso = jstEnd.toISOString();
 
-        // 縺ｾ縺壽悽譌･蛻・・繝ｬ繝ｼ繧ｹ繧貞叙蠕励＠縲∵凾蛻ｻ繧帝℃縺弱◆waiting繝ｬ繝ｼ繧ｹ縺後≠繧後・遒ｺ螳壼・逅・ｒ襍ｰ繧峨○繧・
+        // Use local time strings with offset for comparison to match DB format (ISO-like with +09:00)
+        // Start: today 00:00:00+09:00
+        const startStr = `${y}-${m}-${d}T00:00:00+09:00`;
+
+        // End: tomorrow 00:00:00+09:00
+        const jstDate = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
+        jstDate.setDate(jstDate.getDate() + 1);
+        const nextParts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Tokyo",
+            year: "numeric", month: "2-digit", day: "2-digit"
+        }).formatToParts(jstDate);
+        const ny = nextParts.find(p => p.type === "year")?.value;
+        const nm = nextParts.find(p => p.type === "month")?.value;
+        const nd = nextParts.find(p => p.type === "day")?.value;
+        const endStr = `${ny}-${nm}-${nd}T00:00:00+09:00`;
+
+        // 縺ｾ縺壽悽譌･蛻・・繝ｬ繝ｼ繧ｹ繧貞叙蠕励＠縲∵凾蛻ｻ繧帝℃縺弱◆waiting/calculating繝ｬ繝ｼ繧ｹ縺後≠繧後・遒ｺ螳壼・逅・ｒ襍ｰ繧峨○繧・
+        // calculating縺ｧ豐｡縺｣縺ｦ縺・ｋﾂ・騾・↑縺ｮ繧ゅΜ繧ｫ繝舌Μ蟇ｾ雎｡縺ｫ縺吶ｋ
         const todayRaces = await db
             .select()
             .from(keibaRaces)
             .where(or(
-                and(gte(keibaRaces.scheduledAt, startIso), lt(keibaRaces.scheduledAt, endIso)),
+                and(gte(keibaRaces.scheduledAt, startStr), lt(keibaRaces.scheduledAt, endStr)),
                 like(keibaRaces.id, todayPrefix)
             ))
             .orderBy(desc(keibaRaces.scheduledAt));
 
         for (const r of todayRaces) {
-            if (r.status === "waiting" && r.scheduledAt) {
+            // Status check: waiting OR calculating (recovery)
+            if ((r.status === "waiting" || r.status === "calculating") && r.scheduledAt) {
                 const scheduled = new Date(r.scheduledAt);
                 if (Number.isFinite(scheduled.getTime()) && now >= scheduled) {
                     try {
@@ -1056,7 +1086,7 @@ export async function getTodayRaceResults(): Promise<{
             .where(and(
                 eq(keibaRaces.status, "finished"),
                 or(
-                    and(gte(keibaRaces.scheduledAt, startIso), lt(keibaRaces.scheduledAt, endIso)),
+                    and(gte(keibaRaces.scheduledAt, startStr), lt(keibaRaces.scheduledAt, endStr)),
                     like(keibaRaces.id, todayPrefix)
                 )
             ))
