@@ -71,7 +71,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 isThemeHydratingRef.current = false;
             }
         } else {
-            isThemeHydratingRef.current = true;
+            isThemeHydratingRef.current = false;
         }
     }, [user?.id]);
     useEffect(() => {
