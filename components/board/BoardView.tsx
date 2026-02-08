@@ -187,44 +187,46 @@ export function BoardView({ user }: BoardViewProps) {
     }
 
     return (
-        <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-        >
-            <div ref={scrollRef} className="h-full overflow-x-auto pb-4 -mx-4 px-4 cursor-grab">
-                <div className="flex gap-4 min-w-max">
-                    {data.lists
-                        .filter((list) => !ui.hiddenListIds.has(list.id))
-                        .map((list) => (
-                            <ListColumn
-                                key={list.id}
-                                list={list}
-                                cards={cardsByList.get(list.id) || []}
-                                isUnlocked={ui.unlockedListIds.has(list.id)}
-                                overdueMemoCardIds={data.overdueMemoCardIds}
-                            />
-                        ))}
-                </div>
-            </div>
-
-            <DragOverlay dropAnimation={{
-                sideEffects: defaultDropAnimationSideEffects({
-                    styles: {
-                        active: {
-                            opacity: '0.5',
-                        },
-                    },
-                }),
-            }}>
-                {activeCard ? (
-                    <div className="rotate-2">
-                        <CardItem card={activeCard} hasOverdueMemo={false} />
+        <div className="h-full">
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
+                <div ref={scrollRef} className="h-full overflow-x-auto overflow-y-hidden pb-4 -mx-4 px-4 cursor-grab">
+                    <div className="flex gap-4 min-w-max h-full items-stretch">
+                        {data.lists
+                            .filter((list) => !ui.hiddenListIds.has(list.id))
+                            .map((list) => (
+                                <ListColumn
+                                    key={list.id}
+                                    list={list}
+                                    cards={cardsByList.get(list.id) || []}
+                                    isUnlocked={ui.unlockedListIds.has(list.id)}
+                                    overdueMemoCardIds={data.overdueMemoCardIds}
+                                />
+                            ))}
                     </div>
-                ) : null}
-            </DragOverlay>
-        </DndContext>
+                </div>
+
+                <DragOverlay dropAnimation={{
+                    sideEffects: defaultDropAnimationSideEffects({
+                        styles: {
+                            active: {
+                                opacity: '0.5',
+                            },
+                        },
+                    }),
+                }}>
+                    {activeCard ? (
+                        <div className="rotate-2">
+                            <CardItem card={activeCard} hasOverdueMemo={false} />
+                        </div>
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
+        </div>
     );
 }
 
@@ -258,7 +260,7 @@ function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnP
     };
 
     return (
-        <div ref={setNodeRef} className="w-80 flex-shrink-0 flex flex-col bg-gray-100 rounded-lg shadow-sm border border-gray-200">
+        <div ref={setNodeRef} className="w-80 flex-shrink-0 flex flex-col h-full bg-gray-100 rounded-lg shadow-sm border border-gray-200">
             {/* リストヘッダー - GAS風 */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white rounded-t-lg">
                 <div className="flex items-center gap-2 min-w-0">
@@ -315,7 +317,7 @@ function ListColumn({ list, cards, isUnlocked, overdueMemoCardIds }: ListColumnP
             </div>
 
             {/* カードリスト */}
-            <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
+            <div className="flex-1 min-h-0 p-2 space-y-2 overflow-y-auto">
                 <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
                     {cards.length === 0 ? (
                         <p className="text-center text-gray-400 text-sm py-8">カードなし</p>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useThemeStore } from "@/stores/themeStore";
-import { useEffect, useState } from "react";
 
 /**
  * テーマ背景コンポーネント
@@ -9,13 +8,7 @@ import { useEffect, useState } from "react";
  */
 export function ThemeBackground() {
     const { config } = useThemeStore();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    if (!mounted || config.bgType === "none") return null;
+    if (config.bgType === "none") return null;
 
     const style: React.CSSProperties = {
         position: "fixed",

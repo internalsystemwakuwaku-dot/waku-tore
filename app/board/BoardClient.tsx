@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { BoardView } from "@/components/board/BoardView";
 import { FilterBar, QuickFilterButtons } from "@/components/filters/FilterBar";
 import { CardModal, MemoModal } from "@/components/modals";
@@ -27,6 +27,7 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { ThemeBackground } from "@/components/ui/ThemeBackground";
 import Link from "next/link";
 import { getOverdueMemoCardIds } from "@/app/actions/memo";
+import { updateGameSettings } from "@/app/actions/game";
 import { signOut } from "@/lib/auth/client";
 
 interface User {
@@ -40,38 +41,85 @@ interface BoardClientProps {
 }
 
 /**
- * ボードクライアント - GAS風ヘッダーデザイン
+ * ボ�EドクライアンチE- GAS風ヘッダーチE��イン
  */
 export function BoardClient({ user }: BoardClientProps) {
     const { ui, toggleBulkMode, clearSelection, data, setEditingCard, setOverdueCardIds, setCurrentUserId, setHiddenListIds } = useBoardStore();
     const selectedCount = ui.selectedCardIds.size;
     const [showMemoModal, setShowMemoModal] = useState(false);
-
-
+    const { config, currentTheme } = useThemeStore();
+    const isThemeHydratingRef = useRef(true);
+    const getUserThemeKey = (userId: string) => `waku-tore-theme-user:${userId}`;
+    // ���[�J���L���b�V�����瑦�����f�i�����\���̂�����ጸ�j
+    useLayoutEffect(() => {
+        if (!user?.id) return;
+        const key = getUserThemeKey(user.id);
+        const stored = localStorage.getItem(key);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                isThemeHydratingRef.current = true;
+                if (parsed.theme) {
+                    useThemeStore.getState().setTheme(parsed.theme);
+                }
+                if (parsed.config) {
+                    useThemeStore.getState().updateConfig(parsed.config);
+                }
+            } catch {
+                // ignore invalid cache
+            } finally {
+                isThemeHydratingRef.current = false;
+            }
+        } else {
+            isThemeHydratingRef.current = true;
+        }
+    }, [user?.id]);
     useEffect(() => {
         if (user?.id) {
             setCurrentUserId(user.id);
-            // ゲームデータを取得して設定を反映
-            // Note: 本来は useGameStore で管理されているが、ここでは簡易的にServer Actionを直接呼ぶか、
-            // すでに useGameStore でロードされていればそこから取る。
-            // しかし useGameStore は polling されているわけではないかもしれない。
-            // 確実なのは action を呼ぶこと。
             import("@/app/actions/game").then(async ({ getGameData }) => {
                 try {
                     const gameData = await getGameData(user.id);
 
-                    // GameStoreを更新 (これをしないとHorseRaceModalなどでuserIdが取れない)
-                    // fromServer: true で isDirty をリセット
                     useGameStore.getState().setData(gameData, true);
                     if (gameData.settings.hiddenListIds) {
                         setHiddenListIds(gameData.settings.hiddenListIds);
                     }
+
+                    isThemeHydratingRef.current = true;
+                    if (gameData.settings.theme) {
+                        useThemeStore.getState().setTheme(gameData.settings.theme as any);
+                    }
+                    if (gameData.settings.themeConfig) {
+                        useThemeStore.getState().updateConfig(gameData.settings.themeConfig);
+                    }
+                    isThemeHydratingRef.current = false;
                 } catch (e) {
                     console.error("Failed to load user settings:", e);
+                    isThemeHydratingRef.current = false;
                 }
             });
         }
     }, [user?.id, setCurrentUserId, setHiddenListIds]);
+    // �e�[�}�ݒ�̕ύX�����[�U�[�ݒ�Ƃ��ĕۑ�
+    useEffect(() => {
+        if (!user?.id) return;
+        if (isThemeHydratingRef.current) return;
+
+        const timer = setTimeout(() => {
+            const key = getUserThemeKey(user.id);
+            localStorage.setItem(
+                key,
+                JSON.stringify({ theme: currentTheme, config })
+            );
+            updateGameSettings(user.id, {
+                theme: currentTheme,
+                themeConfig: config,
+            }).catch((e) => console.error("Failed to save theme settings:", e));
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [user?.id, currentTheme, config]);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showOmikujiModal, setShowOmikujiModal] = useState(false);
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
@@ -84,18 +132,18 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
-    // オートクリッカー等のタイマー
+    // オートクリチE��ー等�Eタイマ�E
     useEffect(() => {
-        // 1秒ごとにゲームのtickを実行
+        // 1秒ごとにゲームのtickを実衁E
         const timer = setInterval(() => {
             useGameStore.getState().tick();
         }, 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // 30秒ごとの自動保存
+    // 30秒ごとの自動保孁E
     useEffect(() => {
-        const AUTO_SAVE_INTERVAL = 30000; // 30秒
+        const AUTO_SAVE_INTERVAL = 30000; // 30私E
 
         const autoSave = async () => {
             const gameState = useGameStore.getState();
@@ -117,11 +165,11 @@ export function BoardClient({ user }: BoardClientProps) {
 
         const timer = setInterval(autoSave, AUTO_SAVE_INTERVAL);
 
-        // ページを離れる前にも保存
+        // ペ�Eジを離れる前にも保孁E
         const handleBeforeUnload = () => {
             const gameState = useGameStore.getState();
             if (gameState.isDirty && gameState.data.userId) {
-                // sendBeacon を使って非同期で保存（ページ遷移をブロックしない）
+                // sendBeacon を使って非同期で保存（�Eージ遷移をブロチE��しなぁE��E
                 navigator.sendBeacon(
                     "/api/game/save",
                     JSON.stringify({ userId: gameState.data.userId, data: gameState.data })
@@ -134,33 +182,30 @@ export function BoardClient({ user }: BoardClientProps) {
         return () => {
             clearInterval(timer);
             window.removeEventListener("beforeunload", handleBeforeUnload);
-            // クリーンアップ時にも保存を試みる
+            // クリーンアチE�E時にも保存を試みめE
             autoSave();
         };
     }, []);
 
-    // M-14: 期限切れメモを定期チェック
+    // M-14: 期限刁E��メモを定期チェチE��
     useEffect(() => {
         const checkOverdue = async () => {
             const ids = await getOverdueMemoCardIds();
             setOverdueCardIds(ids);
         };
         checkOverdue();
-        const timer = setInterval(checkOverdue, 60000); // 1分毎
+        const timer = setInterval(checkOverdue, 60000); // 1刁E��E
         return () => clearInterval(timer);
     }, [setOverdueCardIds]);
 
-    // 編集中のカードを取得
+    // 編雁E��のカードを取征E
     const editingCard = ui.editingCardId && data
         ? data.cards.find((c) => c.id === ui.editingCardId)
         : null;
 
-    // Access theme config
-    const { config } = useThemeStore();
-
     return (
         <div className={`min-h-screen flex flex-col ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
-            {/* テーマ背景 */}
+            {/* チE�Eマ背景 */}
             <ThemeBackground />
 
             {/* ヘッダー - GAS風 */}
@@ -171,7 +216,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* ロゴ */}
                         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-blue-600 transition-colors">
                             <span className="text-2xl">🫡</span>
-                            <span className="text-lg font-bold">わく☆とれ</span>
+                            <span className="text-lg font-bold">わく☁E��めE/span>
                             <span className="text-xs text-gray-400">v2.0</span>
                         </Link>
 
@@ -186,7 +231,7 @@ export function BoardClient({ user }: BoardClientProps) {
                             </svg>
                         </button>
 
-                        {/* ゲームステータスバー */}
+                        {/* ゲームスチE�Eタスバ�E */}
                         <GameStatusBar
                             onOpenShop={() => setShowShopModal(true)}
                             onOpenRanking={() => setShowRankingModal(true)}
@@ -195,9 +240,9 @@ export function BoardClient({ user }: BoardClientProps) {
                         />
                     </div>
 
-                    {/* クイックアクション */}
+                    {/* クイチE��アクション */}
                     <div className="flex items-center gap-2">
-                        {/* 一括操作ボタン */}
+                        {/* 一括操作�Eタン */}
                         <button
                             onClick={toggleBulkMode}
                             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1 ${ui.isBulkMode
@@ -208,13 +253,13 @@ export function BoardClient({ user }: BoardClientProps) {
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                             </svg>
-                            {ui.isBulkMode ? `選択中 (${selectedCount})` : "選択モード"}
+                            {ui.isBulkMode ? `選択中 (${selectedCount})` : "選択モーチE}
                         </button>
 
                         {ui.isBulkMode && selectedCount > 0 && (
                             <div className="flex gap-1">
                                 <button className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded text-sm font-medium transition-colors">
-                                    移動
+                                    移勁E
                                 </button>
                                 <button
                                     onClick={clearSelection}
@@ -225,17 +270,17 @@ export function BoardClient({ user }: BoardClientProps) {
                             </div>
                         )}
 
-                        {/* 区切り線 */}
+                        {/* 区刁E��緁E*/}
                         <div className="w-px h-6 bg-gray-200 mx-1" />
 
-                        {/* GAS風クイックフィルター */}
+                        {/* GAS風クイチE��フィルター */}
                         <QuickFilterButtons />
 
-                        {/* リロード */}
+                        {/* リローチE*/}
                         <button
                             onClick={() => window.location.reload()}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="データ再読込"
+                            title="チE�Eタ再読込"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path
@@ -256,16 +301,16 @@ export function BoardClient({ user }: BoardClientProps) {
                             📝
                         </button>
 
-                        {/* ダッシュボード */}
+                        {/* ダチE��ュボ�EチE*/}
                         <button
                             onClick={() => setShowDashboardModal(true)}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="ダッシュボード"
+                            title="ダチE��ュボ�EチE
                         >
                             📊
                         </button>
 
-                        {/* ショップ */}
+                        {/* ショチE�E */}
 
                         {/* 競馬 */}
 
@@ -281,23 +326,23 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* 予定サイドバー */}
                         <ScheduleSidebar />
 
-                        {/* 設定ボタン */}
+                        {/* 設定�Eタン */}
                         <button
                             onClick={() => setShowSettingsModal(true)}
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
                         >
-                            ⚙️ 設定
+                            ⚙︁E設宁E
                         </button>
 
-                        {/* 区切り線 */}
+                        {/* 区刁E��緁E*/}
                         <div className="w-px h-6 bg-gray-200 mx-2" />
 
-                        {/* ユーザー情報 */}
+                        {/* ユーザー惁E�� */}
                         <div className="flex items-center gap-2 text-gray-700">
                             <span className="text-sm font-medium">{user.name || user.email}</span>
                         </div>
 
-                        {/* ログアウト */}
+                        {/* ログアウチE*/}
                         <button
                             onClick={async () => {
                                 await signOut();
@@ -305,12 +350,12 @@ export function BoardClient({ user }: BoardClientProps) {
                             }}
                             className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded transition-colors"
                         >
-                            ログアウト
+                            ログアウチE
                         </button>
                     </div>
                 </div>
 
-                {/* フィルターバー - 折りたたみ可能 */}
+                {/* フィルターバ�E - 折りたたみ可能 */}
                 {!headerCollapsed && (
                     <div className="border-t border-gray-100 bg-gray-50">
                         <div className="max-w-[1920px] mx-auto px-4 py-2">
@@ -320,7 +365,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 )}
             </header>
 
-            {/* メインコンテンツ */}
+            {/* メインコンチE��チE*/}
             <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto px-4 py-4 overflow-hidden">
                 <BoardView user={user} />
             </main>
@@ -328,7 +373,7 @@ export function BoardClient({ user }: BoardClientProps) {
             {/* Description Sidebar (M-XX) */}
             <DescriptionSidebar />
 
-            {/* カード編集モーダル */}
+            {/* カード編雁E��ーダル */}
             {editingCard && (
                 <CardModal
                     card={editingCard}
@@ -358,16 +403,16 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowOmikujiModal(false)}
             />
 
-            {/* レベルアップ演出 */}
+            {/* レベルアチE�E演�E */}
             <LevelUpModal />
 
             {/* BGMプレイヤー */}
             <BgmPlayer />
 
-            {/* トースト通知 */}
+            {/* ト�Eスト通知 */}
             <ToastContainer />
 
-            {/* 一括担当者設定モーダル */}
+            {/* 一括拁E��老E��定モーダル */}
             <BulkAssignModal
                 isOpen={showBulkAssignModal}
                 onClose={() => setShowBulkAssignModal(false)}
@@ -379,7 +424,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowBulkMoveModal(false)}
             />
 
-            {/* 一括アクションバー */}
+            {/* 一括アクションバ�E */}
             <BulkActionBar
                 onOpenBulkAssign={() => setShowBulkAssignModal(true)}
                 onOpenBulkMove={() => setShowBulkMoveModal(true)}
@@ -394,13 +439,13 @@ export function BoardClient({ user }: BoardClientProps) {
                 />
             )}
 
-            {/* ダッシュボードモーダル */}
+            {/* ダチE��ュボ�Eドモーダル */}
             <DashboardModal
                 isOpen={showDashboardModal}
                 onClose={() => setShowDashboardModal(false)}
             />
 
-            {/* ショップモーダル */}
+            {/* ショチE�Eモーダル */}
             <ShopModal
                 isOpen={showShopModal}
                 onClose={() => setShowShopModal(false)}

@@ -26,9 +26,20 @@ export interface GameSettings {
     bgmVolume: number;
     seVolume: number;
     theme: string;
+    themeConfig?: ThemeConfig;
     enableNotifications: boolean;
     enableAnimations: boolean;
     hiddenListIds?: string[]; // M-XX: 表示リスト設定の永続化
+}
+
+// 背景設定 (ユーザーごと保存用)
+export interface ThemeConfig {
+    bgType: "none" | "image" | "video";
+    bgUrl: string;
+    bgOpacity: number;
+    bgScale: number;
+    bgPosX: number;
+    bgPosY: number;
 }
 
 // ゲーム統計
@@ -139,6 +150,14 @@ export const DEFAULT_GAME_DATA: GameData = {
         bgmVolume: 0.5,
         seVolume: 0.7,
         theme: "default",
+        themeConfig: {
+            bgType: "none",
+            bgUrl: "",
+            bgOpacity: 0.5,
+            bgScale: 1.0,
+            bgPosX: 0,
+            bgPosY: 0,
+        },
         enableNotifications: true,
         enableAnimations: true,
     },

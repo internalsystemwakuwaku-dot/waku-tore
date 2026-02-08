@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { ThemeConfig } from "@/types/game";
 
 // 利用可能なテーマ
 export const THEMES = [
@@ -19,15 +20,6 @@ export const THEMES = [
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
-
-export interface ThemeConfig {
-    bgType: "none" | "image" | "video";
-    bgUrl: string;
-    bgOpacity: number;
-    bgScale: number;
-    bgPosX: number;
-    bgPosY: number;
-}
 
 export const DEFAULT_THEME_CONFIG: ThemeConfig = {
     bgType: "none",
