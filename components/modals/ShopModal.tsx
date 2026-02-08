@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useGameStore, SHOP_ITEMS } from "@/stores/gameStore";
 import { useSound } from "@/lib/sound/SoundContext";
@@ -12,15 +12,16 @@ interface ShopModalProps {
 }
 
 /**
- * 自動化ショップモーダル - GAS完全再現版
- * - カテゴリ別アイテム表示
- * - 施設購入による自動化進行
+ * ワクワクショップモーダル
+ * - カテゴリ別にアイテムを表示
+ * - 施設/ブースターは所持数と効果を表示
  */
 export function ShopModal({ isOpen, onClose }: ShopModalProps) {
     const { data, purchaseItem, canAfford, getOwnedCount } = useGameStore();
     const { playSe, playBgm } = useSound();
     const [activeCategory, setActiveCategory] = useState<ShopItem["category"]>("facility");
     const [nowMs, setNowMs] = useState(() => Date.now());
+
     useEffect(() => {
         if (!isOpen) return;
         const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -29,20 +30,17 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
 
     if (!isOpen) return null;
 
-    // カテゴリごとのラベル
     const categoryLabels: Record<string, string> = {
         facility: "🏭 施設",
         theme: "🎨 テーマ",
         decoration: "✨ 装飾",
         booster: "⚡ ブースター",
-        special: "👑 特別",
+        special: "🏆 特別",
     };
 
-    // 表示するアイテム
     const displayedItems = SHOP_ITEMS.filter((item) => item.category === activeCategory);
     const activeBoosts = data.activeBoosts || {};
 
-    // 購入処理
     const handlePurchase = (item: ShopItem) => {
         if (!canAfford(item.price)) {
             playSe("cancel");
@@ -65,9 +63,18 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
         return `${min}:${String(sec).padStart(2, "0")}`;
     };
 
+    const formatEffect = (item: ShopItem) => {
+        if (!item.effect) return null;
+        if (item.effect.startsWith("auto_xp_")) {
+            const xp = item.effect.replace("auto_xp_", "");
+            return `効果: 1秒ごとに${xp}XP`;
+        }
+        return null;
+    };
+
     const handleActivate = async (item: ShopItem) => {
         if (!data.userId) {
-            alert("ユーザー情報が読み込まれていません");
+            alert("ユーザー情報の取得に失敗しました");
             return;
         }
         const owned = getOwnedCount(item.id);
@@ -98,10 +105,10 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                 {/* ヘッダー */}
                 <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between shadow-md">
                     <div className="flex items-center gap-4">
-                        <span className="text-3xl">🛒</span>
+                        <span className="text-3xl">🏪</span>
                         <div>
-                            <h2 className="text-xl font-bold text-amber-400">わくわくショップ</h2>
-                            <p className="text-sm text-gray-400">XPを稼いでアイテムをゲット！</p>
+                            <h2 className="text-xl font-bold text-amber-400">ワクワクショップ</h2>
+                            <p className="text-sm text-gray-400">XPを貯めてアイテムをゲット</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-6">
@@ -115,7 +122,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                             onClick={onClose}
                             className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg transition-colors"
                         >
-                            ✕ 閉じる
+                            閉じる
                         </button>
                     </div>
                 </div>
@@ -180,11 +187,15 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                                 </div>
                                                 <p className="text-xs text-gray-400 mb-2 line-clamp-2 min-h-[2.5em]">
                                                     {item.description}
-                                                    {item.effect && <span className="block text-amber-400 mt-0.5">効果: {item.effect}</span>}
+                                                    {formatEffect(item) && (
+                                                        <span className="block text-amber-400 mt-0.5">
+                                                            {formatEffect(item)}
+                                                        </span>
+                                                    )}
                                                 </p>
                                                 {isBooster && (
                                                     <div className="text-xs text-amber-300">
-                                                        {isActive ? `有効中 残り ${formatRemaining(remainingMs)}` : "未使用"}
+                                                        {isActive ? `使用中 残り ${formatRemaining(remainingMs)}` : "未使用"}
                                                     </div>
                                                 )}
 
@@ -195,7 +206,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
 
                                                     {isMax ? (
                                                         <button disabled className="px-4 py-1.5 bg-green-900 text-green-400 text-xs font-bold rounded cursor-not-allowed border border-green-700">
-                                                            購入済
+                                                            購入済み
                                                         </button>
                                                     ) : (
                                                         <div className="flex items-center gap-2">
@@ -208,7 +219,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                                                         : "bg-gray-700 text-gray-500 cursor-not-allowed"
                                                                         }`}
                                                                 >
-                                                                    {isActive ? "再使用" : "使用"}
+                                                                    {isActive ? "使用中" : "使用"}
                                                                 </button>
                                                             )}
                                                             <button

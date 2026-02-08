@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import type { GameData, RankingEntry, ShopItem } from "@/types/game";
 import { DEFAULT_GAME_DATA } from "@/types/game";
 import { getXpMultiplier, getXpFlatBonus, getClickPower, getAutoXpMultiplier } from "@/lib/gameEffects";
