@@ -67,21 +67,39 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     const fetchRace = useCallback(async () => {
         setIsFetchingRace(true);
         try {
-            const { race: fetchedRace, myBets: fetchedBets } = await getActiveRace(gameUser.userId);
-            setRace(fetchedRace);
-            setMyBets(fetchedBets);
+            const { activeRace, lastFinishedRace, myBets: fetchedBets, lastFinishedRaceBets } = await getActiveRace(gameUser.userId);
 
-            if (fetchedRace.status === "finished") {
-                if (phase !== "racing") setPhase("result");
-            } else if (fetchedRace.status === "calculating") {
+            const isNextRace = race && activeRace.id !== race.id;
+
+            if (phase === "result" && !isNextRace) {
+                // 結果表示中に次のレース情報が来ても、まだユーザーが結果を見ているなら
+                // 勝手に activeRace (次のレース) に切り替えないように制御する
+                if (lastFinishedRace && lastFinishedRace.id === race.id) {
+                    setRace(lastFinishedRace);
+                    // 結果画面では、そのレースのベットを表示したい
+                    setMyBets(lastFinishedRaceBets);
+                }
+            } else {
+                setRace(activeRace);
+                setMyBets(fetchedBets);
+            }
+
+            if (activeRace.status === "calculating") {
                 setPhase("racing");
-            } else if (fetchedRace.status === "waiting") {
+            } else if (activeRace.status === "waiting") {
                 const now = new Date();
-                const scheduled = new Date(fetchedRace.startedAt!);
+                const scheduled = new Date(activeRace.startedAt!);
                 if (now >= scheduled) {
                     setPhase("racing");
                 } else {
-                    setPhase("betting");
+                    // 自動遷移: 結果表示から次のレースへ
+                    if (phase === "result" && isNextRace) {
+                        setPhase("betting");
+                        setMyBets(fetchedBets); // Bettingフェーズなら次のレースのベット
+                    }
+                    if (phase === "loading") {
+                        setPhase("betting");
+                    }
                 }
             }
         } catch (e) {
@@ -90,7 +108,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             setIsFetchingRace(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [gameUser.userId]);
+    }, [gameUser.userId, race, phase]);
 
     useEffect(() => {
         todayResultsRef.current = todayResults;
@@ -161,13 +179,14 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
     useEffect(() => {
         if (tab !== "today" || !isOpen) return;
         fetchTodayResults();
-        return () => {};
+        return () => { };
     }, [tab, isOpen, fetchTodayResults]);
 
     useEffect(() => {
         if (phase === "result") {
             fetchTodayResults(true);
-            if (tab === "bet") setTab("today");
+            // タブの強制切り替えを削除
+            // if (tab === "bet") setTab("today");
         }
     }, [phase, fetchTodayResults, tab]);
 
@@ -235,8 +254,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 if (raceTimerRef.current) clearInterval(raceTimerRef.current);
                 setTimeout(async () => {
                     try {
-                        const { myBets: finalBets } = await getActiveRace(gameUser.userId);
-                        setMyBets(finalBets);
+                        const { lastFinishedRaceBets } = await getActiveRace(gameUser.userId);
+                        // 結果フェーズ移行時は、終わったレースのベット情報をセットする
+                        if (lastFinishedRaceBets) {
+                            setMyBets(lastFinishedRaceBets);
+                        }
                     } catch (e) {
                         console.error("[HorseRaceModal] Failed to refresh bets before result:", e);
                     }
@@ -257,29 +279,41 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                 isPolling = true;
 
                 try {
-                    const { race: latestRace, myBets: latestBets } = await getActiveRace(gameUser.userId);
-                    if (latestRace.status === "calculating") return;
+                    const { activeRace, lastFinishedRace, lastFinishedRaceBets } = await getActiveRace(gameUser.userId);
 
-                    if (latestRace.status === "finished" && latestRace.winnerId) {
+                    const currentRaceId = race?.id;
+                    let finishedRace: Race | null = null;
+
+                    if (activeRace.id === currentRaceId && activeRace.status === "finished") {
+                        finishedRace = activeRace;
+                    } else if (lastFinishedRace && lastFinishedRace.id === currentRaceId) {
+                        finishedRace = lastFinishedRace;
+                    }
+
+                    if (finishedRace && finishedRace.winnerId) {
                         clearInterval(pollTimer);
-                        setRace(latestRace);
+                        setRace(finishedRace);
 
-                        const hasPayout = latestBets.some(b => (b.payout || 0) > 0);
-                        const hasWinningBet = latestBets.some(b => {
-                            if (b.type === "WIN" && b.horseId === latestRace.winnerId) return true;
-                            if (b.type === "PLACE" && latestRace.ranking && latestRace.ranking.slice(0, 3).includes(b.horseId || 0)) return true;
+                        // 結果確定時は、終わったレースのベットを使う
+                        const finalBets = lastFinishedRaceBets || [];
+
+                        const hasPayout = finalBets.some(b => (b.payout || 0) > 0);
+                        const hasWinningBet = finalBets.some(b => {
+                            if (b.type === "WIN" && b.horseId === finishedRace!.winnerId) return true;
+                            if (b.type === "PLACE" && finishedRace!.ranking && finishedRace!.ranking.slice(0, 3).includes(b.horseId || 0)) return true;
                             return false;
                         });
 
-                        if (hasWinningBet && !hasPayout && latestBets.length > 0) {
+                        if (hasWinningBet && !hasPayout && finalBets.length > 0) {
+                            // 払い戻し計算がまだなら少し待って再取得 (Payoutバッチ処理待ち)
                             await new Promise(resolve => setTimeout(resolve, 500));
-                            const { myBets: refreshedBets } = await getActiveRace(gameUser.userId);
+                            const { lastFinishedRaceBets: refreshedBets } = await getActiveRace(gameUser.userId);
                             setMyBets(refreshedBets);
                         } else {
-                            setMyBets(latestBets);
+                            setMyBets(finalBets);
                         }
 
-                        startRiggedAnimation(latestRace.winnerId, latestRace.horses);
+                        startRiggedAnimation(finishedRace.winnerId, finishedRace.horses);
 
                         try {
                             const updatedUser = await getGameData(gameUser.userId);
@@ -313,7 +347,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             clearInterval(pollTimer);
             if (!isOpen) stopBgm();
         };
-    }, [phase, gameUser.userId, isOpen, playBgm, playSe, stopBgm, setData, startRiggedAnimation]);
+    }, [phase, gameUser.userId, isOpen, playBgm, playSe, stopBgm, setData, startRiggedAnimation, race?.id]);
 
     const handleBet = async () => {
         if (!race || isActionLoading) return;
@@ -673,7 +707,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                     </div>
                 </div>
 
-                                                                                                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
+                <div className="flex border-b border-gray-700 bg-gray-900 text-sm">
                     <button onClick={() => setTab("bet")} className={`flex-1 py-3 font-bold ${tab === "bet" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>賭け</button>
                     <button onClick={() => setTab("race")} className={`flex-1 py-3 font-bold ${tab === "race" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>レース</button>
                     <button onClick={() => setTab("today")} className={`flex-1 py-3 font-bold ${tab === "today" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800"}`}>本日の結果</button>
@@ -1084,27 +1118,27 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                                 disabled={isActionLoading || !isSelectionValid || isBetOverLimit}
                                                 className="w-full py-3 bg-red-600 hover:bg-red-500 rounded font-bold disabled:opacity-50"
                                             >
-                                                        {isActionLoading ? "処理中..." : "賭ける"}
-                                                    </button>
+                                                {isActionLoading ? "処理中..." : "賭ける"}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                                                        {phase !== "betting" && (
+                            {phase !== "betting" && (
                                 <div className="text-gray-400 text-center py-10">
                                     {phase === "loading" && "レース情報を取得中..."}
                                     {phase === "racing" && "レース進行中..."}
                                     {phase === "result" && "結果のレースを確認しています..."}
                                     <div className="mt-4">
-                                        <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">譖ｴ譁ｰ</button>
+                                        <button onClick={fetchRace} className="px-4 py-2 bg-gray-700 rounded">更新</button>
                                     </div>
                                 </div>
                             )}
 
-                            
+
                         </>
-                     ) : tab === "race" ? (
+                    ) : tab === "race" ? (
                         <div className="space-y-4">
                             {phase === "betting" && (
                                 <div className="text-gray-400 text-center py-10">レースはまだ開始していません</div>
@@ -1165,7 +1199,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                     onClick={() => fetchTodayResults(true)}
                                     className="p-2 text-xs bg-gray-700 hover:bg-gray-600 rounded-full"
                                     disabled={resultsLoading}
-                                    title="譖ｴ譁ｰ"
+                                    title="更新"
                                 >
                                     <svg className={`w-4 h-4 ${resultsLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path
@@ -1207,11 +1241,11 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
                                             ))}
                                         </div>
                                         <div className="mt-3 text-xs text-gray-400">払戻とユーザー一覧</div>
-                                                    <div className="mt-2 space-y-2">
-                                                        {r.bets.length === 0 ? (
-                                                            <div className="text-gray-500 text-xs">該当ユーザーなし</div>
-                                                        ) : (
-                                                            r.bets.map((b) => (
+                                        <div className="mt-2 space-y-2">
+                                            {r.bets.length === 0 ? (
+                                                <div className="text-gray-500 text-xs">該当ユーザーなし</div>
+                                            ) : (
+                                                r.bets.map((b) => (
                                                     <div key={b.userId} className="bg-black/40 rounded p-2 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-gray-300">User: {b.userName || b.userId}</span>

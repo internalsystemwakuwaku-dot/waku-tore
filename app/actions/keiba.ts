@@ -3,7 +3,7 @@
 /**
  * 遶ｶ鬥ｬ繝ｻ繧ｬ繝√Ε Server Actions
  * - 繝ｬ繝ｼ繧ｹ縺ｯJST縺ｮ繧ｹ繧ｱ繧ｸ繝･繝ｼ繝ｫ縺ｧ閾ｪ蜍慕函謌・
- * - 謚慕･ｨ/霑秘≡/謇墓綾縺ｯ繝医Λ繝ｳ繧ｶ繧ｯ繧ｷ繝ｧ繝ｳ縺ｧ謨ｴ蜷域ｧ繧呈球菫・
+ * - 謚慕･ｨ/霑秘≡/謇墓綾縺ｯ繝医Λ繝ｳ繧ｶ繧ｯ繧ｷ繝ｧ繝ｳ縺ｧ謨ｴ蜷域€ｧ繧呈球菫・
  */
 
 import { db } from "@/lib/db/client";
@@ -51,12 +51,63 @@ function getJstParts(date: Date) {
     };
 }
 
-export async function getActiveRace(userId: string): Promise<{ race: Race; myBets: Bet[] }> {
+export async function getActiveRace(userId: string): Promise<{ activeRace: Race; lastFinishedRace: Race | null; myBets: Bet[]; lastFinishedRaceBets: Bet[] }> {
     const now = new Date();
     const nowJstParts = getJstParts(now);
     const currentH = nowJstParts.h;
     const currentM = nowJstParts.min;
 
+    // 1. 直近の終了レースを取得
+    //    常に取得し、フロントエンドが "本日の結果" タブで使えるようにする
+    let lastFinishedRace: Race | null = null;
+    const lastRaceData = await db
+        .select()
+        .from(keibaRaces)
+        .where(eq(keibaRaces.status, "finished"))
+        .orderBy(desc(keibaRaces.finishedAt))
+        .limit(1)
+        .then((res) => res[0]);
+
+    if (lastRaceData) {
+        let lastRanking: number[] | undefined;
+        try {
+            lastRanking = lastRaceData.resultsJson ? JSON.parse(lastRaceData.resultsJson) : undefined;
+        } catch { }
+
+        lastFinishedRace = {
+            id: lastRaceData.id,
+            name: lastRaceData.name,
+            horses: JSON.parse(lastRaceData.horsesJson),
+            status: "finished",
+            startedAt: lastRaceData.scheduledAt,
+            winnerId: lastRaceData.winnerId,
+            ranking: lastRanking,
+        };
+    }
+
+    // additional: lastFinishedRace に対するベットも取得
+    let lastFinishedRaceBets: Bet[] = [];
+    if (lastFinishedRace) {
+        const betsData = await db
+            .select()
+            .from(keibaTransactions)
+            .where(and(eq(keibaTransactions.raceId, lastFinishedRace.id), eq(keibaTransactions.userId, userId)));
+
+        lastFinishedRaceBets = betsData.map((b) => ({
+            id: String(b.id),
+            raceId: b.raceId,
+            userId: b.userId,
+            type: (b.type as BetType) || "WIN",
+            mode: (b.mode as BetMode) || "NORMAL",
+            horseId: b.horseId || undefined,
+            details: b.details || undefined,
+            amount: b.betAmount,
+            payout: b.payout,
+            createdAt: b.createdAt || "",
+        }));
+    }
+
+    // 2. ActiveRace (投票対象) の決定
     let currentRaceConfig: { h: number; m: number } | null = null;
     let nextRaceConfig: { h: number; m: number } | null = null;
 
@@ -86,7 +137,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     let targetScheduledTime: Date | null = null;
 
     if (!currentRaceConfig) {
-        // Before the first race of the day
+        // 朝一番より前 -> 今日の最初のレース
         if (!nextRaceConfig) nextRaceConfig = RACE_SCHEDULE[0];
         const meta = buildRaceMeta(today, nextRaceConfig);
         targetRaceId = meta.raceId;
@@ -98,7 +149,10 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     }
 
     if (!targetRaceId || !targetScheduledTime) {
-        throw new Error("Race schedule not found");
+        // Fallback
+        const meta = buildRaceMeta(new Date(today.getTime() + 24 * 60 * 60 * 1000), RACE_SCHEDULE[0]);
+        targetRaceId = meta.raceId;
+        targetScheduledTime = meta.scheduledTime;
     }
 
     let raceData = await db
@@ -113,7 +167,6 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
             ...h,
             odds: Math.round((h.odds + (Math.random() - 0.5) * 0.5) * 10) / 10,
         }));
-
         const name = generateRaceName();
         try {
             await db.insert(keibaRaces).values({
@@ -125,7 +178,6 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
                 scheduledAt: targetScheduledTime.toISOString(),
                 resultsJson: null,
             });
-
             raceData = {
                 id: targetRaceId,
                 userId: null,
@@ -148,17 +200,48 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
     const raceScheduledTime = new Date(raceData.scheduledAt!);
     const currentTime = new Date();
 
+    // Waiting -> Calculating/Finished 遷移処理
     if (raceData.status === "waiting" && currentTime >= raceScheduledTime) {
         const resolved = await resolveRace(targetRaceId);
         if (resolved) {
             raceData = resolved;
-        } else {
-            let retryCount = 0;
-            const maxRetries = 3;
-            const retryDelay = 500;
+            // いま終わったばかりなら lastFinishedRace も更新
+            if (raceData.status === "finished") {
+                let lastRanking: number[] | undefined;
+                try { lastRanking = raceData.resultsJson ? JSON.parse(raceData.resultsJson) : undefined; } catch { }
+                lastFinishedRace = {
+                    id: raceData.id,
+                    name: raceData.name,
+                    horses: JSON.parse(raceData.horsesJson),
+                    status: "finished",
+                    startedAt: raceData.scheduledAt,
+                    winnerId: raceData.winnerId,
+                    ranking: lastRanking,
+                };
+                // lastFinishedRaceBets も更新が必要
+                const betsData = await db
+                    .select()
+                    .from(keibaTransactions)
+                    .where(and(eq(keibaTransactions.raceId, lastFinishedRace.id), eq(keibaTransactions.userId, userId)));
 
-            while (retryCount < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                lastFinishedRaceBets = betsData.map((b) => ({
+                    id: String(b.id),
+                    raceId: b.raceId,
+                    userId: b.userId,
+                    type: (b.type as BetType) || "WIN",
+                    mode: (b.mode as BetMode) || "NORMAL",
+                    horseId: b.horseId || undefined,
+                    details: b.details || undefined,
+                    amount: b.betAmount,
+                    payout: b.payout,
+                    createdAt: b.createdAt || "",
+                }));
+            }
+        } else {
+            // 処理中の可能性があるので少し待って再取得
+            let retryCount = 0;
+            while (retryCount < 3) {
+                await new Promise(resolve => setTimeout(resolve, 500));
                 const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, targetRaceId)).limit(1);
                 if (refetched[0]) {
                     raceData = refetched[0];
@@ -169,11 +252,11 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         }
     }
 
+    // Calculating 待機
     if (raceData.status === "calculating") {
         let retryCount = 0;
         const maxRetries = 5;
         const retryDelay = 300;
-
         while (retryCount < maxRetries && raceData.status === "calculating") {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             const refetched = await db.select().from(keibaRaces).where(eq(keibaRaces.id, targetRaceId)).limit(1);
@@ -182,73 +265,83 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         }
     }
 
-    // If current race already finished, but user has bets on it, keep showing it.
+    // もしターゲットとしていたレースが finished なら、activeRace は「次のレース」にする。
+    // Betting タブでは常に「次に賭けられるレース」を表示したい。
     if (raceData.status === "finished") {
-        const hasMyBets = await db
-            .select({ id: keibaTransactions.id })
-            .from(keibaTransactions)
-            .where(and(eq(keibaTransactions.raceId, raceData.id), eq(keibaTransactions.userId, userId)))
-            .limit(1)
-            .then((res) => res.length > 0);
+        let nextMeta: { raceId: string; scheduledTime: Date } | null = null;
 
-        if (!hasMyBets) {
-            // Move to next race (today or tomorrow)
-            let nextMeta: { raceId: string; scheduledTime: Date } | null = null;
-            if (nextRaceConfig) {
-                nextMeta = buildRaceMeta(today, nextRaceConfig);
+        // currentRaceConfig が今のレースだったので、その次が必要
+        // まず、配列上での位置を探す
+        // (currentRaceConfig may actully represent the just-finished one if we are just past the time)
+        let idx = -1;
+        if (currentRaceConfig) {
+            idx = RACE_SCHEDULE.findIndex(s => s.h === currentRaceConfig?.h && s.m === currentRaceConfig?.m);
+        }
+
+        if (idx >= 0 && idx < RACE_SCHEDULE.length - 1) {
+            nextMeta = buildRaceMeta(today, RACE_SCHEDULE[idx + 1]);
+        } else {
+            const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+            nextMeta = buildRaceMeta(tomorrow, RACE_SCHEDULE[0]);
+        }
+
+        // 念のため、見つけた nextMeta がさっきの targetRaceId と同じならさらに次へ (同じなら意味がない)
+        if (nextMeta && nextMeta.raceId === targetRaceId) {
+            if (idx >= 0 && idx < RACE_SCHEDULE.length - 2) {
+                nextMeta = buildRaceMeta(today, RACE_SCHEDULE[idx + 2]);
             } else {
                 const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
                 nextMeta = buildRaceMeta(tomorrow, RACE_SCHEDULE[0]);
             }
+        }
 
-            if (nextMeta) {
-                targetRaceId = nextMeta.raceId;
-                targetScheduledTime = nextMeta.scheduledTime;
-                raceData = await db
-                    .select()
-                    .from(keibaRaces)
-                    .where(eq(keibaRaces.id, targetRaceId))
-                    .limit(1)
-                    .then((res) => res[0]);
+        if (nextMeta) {
+            targetRaceId = nextMeta.raceId;
+            targetScheduledTime = nextMeta.scheduledTime;
 
-                if (!raceData) {
-                    const horses: Horse[] = DEFAULT_HORSES.map((h) => ({
-                        ...h,
-                        odds: Math.round((h.odds + (Math.random() - 0.5) * 0.5) * 10) / 10,
-                    }));
+            let nextRaceData = await db
+                .select()
+                .from(keibaRaces)
+                .where(eq(keibaRaces.id, targetRaceId))
+                .limit(1)
+                .then((res) => res[0]);
 
-                    const name = generateRaceName();
-                    await db.insert(keibaRaces).values({
-                        id: targetRaceId,
-                        userId: null,
-                        name,
-                        horsesJson: JSON.stringify(horses),
-                        status: "waiting",
-                        scheduledAt: targetScheduledTime.toISOString(),
-                        resultsJson: null,
-                    });
-
-                    raceData = {
-                        id: targetRaceId,
-                        userId: null,
-                        name,
-                        horsesJson: JSON.stringify(horses),
-                        status: "waiting",
-                        scheduledAt: targetScheduledTime.toISOString(),
-                        winnerId: null,
-                        resultsJson: null,
-                        finishedAt: null,
-                        createdAt: now.toISOString(),
-                    };
-                }
+            if (!nextRaceData) {
+                const horses: Horse[] = DEFAULT_HORSES.map((h) => ({
+                    ...h,
+                    odds: Math.round((h.odds + (Math.random() - 0.5) * 0.5) * 10) / 10,
+                }));
+                const name = generateRaceName();
+                await db.insert(keibaRaces).values({
+                    id: targetRaceId,
+                    userId: null,
+                    name,
+                    horsesJson: JSON.stringify(horses),
+                    status: "waiting",
+                    scheduledAt: targetScheduledTime.toISOString(),
+                    resultsJson: null,
+                });
+                nextRaceData = {
+                    id: targetRaceId,
+                    userId: null,
+                    name,
+                    horsesJson: JSON.stringify(horses),
+                    status: "waiting",
+                    scheduledAt: targetScheduledTime.toISOString(),
+                    winnerId: null,
+                    resultsJson: null,
+                    finishedAt: null,
+                    createdAt: now.toISOString(),
+                };
             }
+            raceData = nextRaceData;
         }
     }
 
     const myBetsData = await db
         .select()
         .from(keibaTransactions)
-        .where(and(eq(keibaTransactions.raceId, targetRaceId), eq(keibaTransactions.userId, userId)));
+        .where(and(eq(keibaTransactions.raceId, raceData.id), eq(keibaTransactions.userId, userId)));
 
     const myBets: Bet[] = myBetsData.map((b) => ({
         id: String(b.id),
@@ -272,7 +365,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         }
     }
 
-    const race: Race = {
+    const activeRace: Race = {
         id: raceData.id,
         name: raceData.name,
         horses: JSON.parse(raceData.horsesJson),
@@ -282,7 +375,7 @@ export async function getActiveRace(userId: string): Promise<{ race: Race; myBet
         ranking,
     };
 
-    return { race, myBets };
+    return { activeRace, lastFinishedRace, myBets, lastFinishedRaceBets };
 }
 
 export async function placeBet(
