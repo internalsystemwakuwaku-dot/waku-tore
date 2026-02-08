@@ -74,7 +74,7 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             if (phase === "result" && !isNextRace) {
                 // 結果表示中に次のレース情報が来ても、まだユーザーが結果を見ているなら
                 // 勝手に activeRace (次のレース) に切り替えないように制御する
-                if (lastFinishedRace && lastFinishedRace.id === race.id) {
+                if (lastFinishedRace && race && lastFinishedRace.id === race.id) {
                     setRace(lastFinishedRace);
                     // 結果画面では、そのレースのベットを表示したい
                     setMyBets(lastFinishedRaceBets);
