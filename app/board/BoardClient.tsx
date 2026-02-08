@@ -216,7 +216,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* ロゴ */}
                         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-blue-600 transition-colors">
                             <span className="text-2xl">🫡</span>
-                            <span className="text-lg font-bold">わく☁E��めE/span>
+                            <span className="text-lg font-bold">わくとれ</span>
                             <span className="text-xs text-gray-400">v2.0</span>
                         </Link>
 
