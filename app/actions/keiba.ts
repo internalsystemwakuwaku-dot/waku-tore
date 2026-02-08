@@ -825,7 +825,7 @@ export async function pullGacha(
     const discountRate = getGachaDiscountRate(inventory, activeBoosts);
     const totalCost = Math.floor(pool.cost * count * discountRate);
 
-    const deductResult = await transactMoney(userId, -totalCost, "繧ｬ繝√Ε", "GACHA");
+    const deductResult = await transactMoney(userId, -totalCost, "ガチャ", "GACHA");
     if (!deductResult.success) {
         return { success: false, error: deductResult.error };
     }
@@ -862,14 +862,14 @@ export async function pullGacha(
             });
 
             await earnXp(userId, "gacha_play");
-            await logActivity(userId, `繧ｬ繝√Ε迯ｲ蠕・ ${item.name} (${item.rarity})`);
+            await logActivity(userId, `ガチャ獲得: ${item.name} (${item.rarity})`);
             await applyGachaItemEffect(userId, item);
         }
 
         return { success: true, results };
     } catch (e) {
         console.error("pullGacha error:", e);
-        return { success: false, error: "繧ｬ繝√Ε蜃ｦ逅・↓螟ｱ謨励＠縺ｾ縺励◆" };
+        return { success: false, error: "ガチャ処理に失敗しました" };
     }
 }
 
@@ -926,16 +926,20 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         };
         const amount = amounts[item.id] || 0;
         if (amount > 0) {
-            await transactMoney(userId, amount, `繧ｬ繝√Ε迯ｲ蠕・ ${item.name}`, "GACHA_ITEM");
+            await transactMoney(userId, amount, `ガチャ獲得: ${item.name}`, "GACHA_ITEM");
         }
     }
 
-    if (item.id.includes("xp")) {
+    if (item.id.includes("xp") || item.id === "n_cookie") {
         const amounts: Record<string, number> = {
             n_xp_s: 50,
+            n_xp_m: 100,
             r_xp_m: 150,
+            r_xp_l: 200,
             sr_xp_l: 300,
+            sr_xp_xl: 400,
             ssr_mega_xp: 1000,
+            n_cookie: 10,
         };
         const amount = amounts[item.id] || 0;
         if (amount > 0) {
@@ -959,7 +963,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         }
     }
 
-    const inventoryPatterns = ["theme", "booster", "decoration", "special", "ticket", "facility"];
+    const inventoryPatterns = ["theme", "booster", "decoration", "special", "ticket", "facility", "deco"];
     const isInventoryItem = inventoryPatterns.some(pattern => item.id.toLowerCase().includes(pattern));
 
     if (isInventoryItem && !item.id.includes("coin") && !item.id.includes("xp")) {
