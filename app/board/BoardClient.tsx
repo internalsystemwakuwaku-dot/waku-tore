@@ -205,7 +205,7 @@ export function BoardClient({ user }: BoardClientProps) {
 
     return (
         <div className={`min-h-screen flex flex-col ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
-            {/* チE�Eマ背景 */}
+            {/* テーマ背景 */}
             <ThemeBackground />
 
             {/* ヘッダー - GAS風 */}
@@ -231,7 +231,7 @@ export function BoardClient({ user }: BoardClientProps) {
                             </svg>
                         </button>
 
-                        {/* ゲームスチE�Eタスバ�E */}
+                        {/* ゲームステータスバー */}
                         <GameStatusBar
                             onOpenShop={() => setShowShopModal(true)}
                             onOpenRanking={() => setShowRankingModal(true)}
@@ -240,9 +240,9 @@ export function BoardClient({ user }: BoardClientProps) {
                         />
                     </div>
 
-                    {/* クイチE��アクション */}
+                    {/* クイックアクション */}
                     <div className="flex items-center gap-2">
-                        {/* 一括操作�Eタン */}
+                        {/* 一括操作ボタン */}
                         <button
                             onClick={toggleBulkMode}
                             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1 ${ui.isBulkMode
@@ -270,17 +270,17 @@ export function BoardClient({ user }: BoardClientProps) {
                             </div>
                         )}
 
-                        {/* 区刁E��緁E*/}
+                        {/* 区切り線*/}
                         <div className="w-px h-6 bg-gray-200 mx-1" />
 
-                        {/* GAS風クイチE��フィルター */}
+                        {/* GAS風クイックフィルター */}
                         <QuickFilterButtons />
 
-                        {/* リローチE*/}
+                        {/* リロード*/}
                         <button
                             onClick={() => window.location.reload()}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="チE�Eタ再読込"
+                            title="データ再読込"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path
@@ -310,7 +310,7 @@ export function BoardClient({ user }: BoardClientProps) {
                             📊
                         </button>
 
-                        {/* ショチE�E */}
+                        {/* ショップ */}
 
                         {/* 競馬 */}
 
@@ -326,7 +326,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* 予定サイドバー */}
                         <ScheduleSidebar />
 
-                        {/* 設定�Eタン */}
+                        {/* 設定ボタン */}
                         <button
                             onClick={() => setShowSettingsModal(true)}
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
@@ -334,15 +334,15 @@ export function BoardClient({ user }: BoardClientProps) {
                             ⚙︁E設宁E
                         </button>
 
-                        {/* 区刁E��緁E*/}
+                        {/* 区切り線*/}
                         <div className="w-px h-6 bg-gray-200 mx-2" />
 
-                        {/* ユーザー惁E�� */}
+                        {/* ユーザー情報 */}
                         <div className="flex items-center gap-2 text-gray-700">
                             <span className="text-sm font-medium">{user.name || user.email}</span>
                         </div>
 
-                        {/* ログアウチE*/}
+                        {/* ログアウト*/}
                         <button
                             onClick={async () => {
                                 await signOut();
@@ -350,12 +350,12 @@ export function BoardClient({ user }: BoardClientProps) {
                             }}
                             className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 rounded transition-colors"
                         >
-                            ログアウチE
+                            ログアウト
                         </button>
                     </div>
                 </div>
 
-                {/* フィルターバ�E - 折りたたみ可能 */}
+                {/* フィルターバー - 折りたたみ可能 */}
                 {!headerCollapsed && (
                     <div className="border-t border-gray-100 bg-gray-50">
                         <div className="max-w-[1920px] mx-auto px-4 py-2">
@@ -365,7 +365,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 )}
             </header>
 
-            {/* メインコンチE��チE*/}
+            {/* メインコンテンツ*/}
             <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto px-4 py-4 overflow-hidden">
                 <BoardView user={user} />
             </main>
@@ -373,7 +373,7 @@ export function BoardClient({ user }: BoardClientProps) {
             {/* Description Sidebar (M-XX) */}
             <DescriptionSidebar />
 
-            {/* カード編雁E��ーダル */}
+            {/* カード編集モーダル */}
             {editingCard && (
                 <CardModal
                     card={editingCard}
@@ -403,16 +403,16 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowOmikujiModal(false)}
             />
 
-            {/* レベルアチE�E演�E */}
+            {/* レベルアップ演出 */}
             <LevelUpModal />
 
             {/* BGMプレイヤー */}
             <BgmPlayer />
 
-            {/* ト�Eスト通知 */}
+            {/* トースト通知 */}
             <ToastContainer />
 
-            {/* 一括拁E��老E��定モーダル */}
+            {/* 一括担当者設定モーダル */}
             <BulkAssignModal
                 isOpen={showBulkAssignModal}
                 onClose={() => setShowBulkAssignModal(false)}
@@ -424,7 +424,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowBulkMoveModal(false)}
             />
 
-            {/* 一括アクションバ�E */}
+            {/* 一括アクションバー */}
             <BulkActionBar
                 onOpenBulkAssign={() => setShowBulkAssignModal(true)}
                 onOpenBulkMove={() => setShowBulkMoveModal(true)}
@@ -439,13 +439,13 @@ export function BoardClient({ user }: BoardClientProps) {
                 />
             )}
 
-            {/* ダチE��ュボ�Eドモーダル */}
+            {/* ダッシュボードモーダル */}
             <DashboardModal
                 isOpen={showDashboardModal}
                 onClose={() => setShowDashboardModal(false)}
             />
 
-            {/* ショチE�Eモーダル */}
+            {/* ショップモーダル */}
             <ShopModal
                 isOpen={showShopModal}
                 onClose={() => setShowShopModal(false)}
