@@ -30,6 +30,9 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
         const timer = setInterval(() => setNowMs(Date.now()), 1000);
         return () => clearInterval(timer);
     }, []);
+    const [showHistory, setShowHistory] = useState(false);
+    const [history, setHistory] = useState<any[]>([]);
+
     const activeBoosts = data.activeBoosts || {};
     const discountRate = getGachaDiscountRate(data.inventory || {}, activeBoosts);
     const activeGachaBoosts = [
@@ -47,6 +50,19 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
         const min = Math.floor(totalSec / 60);
         const sec = totalSec % 60;
         return `${min}:${String(sec).padStart(2, "0")}`;
+    };
+
+    // 履歴を取得
+    const fetchHistory = async () => {
+        try {
+            const { getGachaHistory } = await import("@/app/actions/keiba");
+            const records = await getGachaHistory(userId);
+            setHistory(records);
+            setShowHistory(true);
+            setShowPoolList(false);
+        } catch (e) {
+            console.error("Failed to fetch history", e);
+        }
     };
 
     // ガチャを回す
@@ -111,12 +127,26 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         {!isRolling && !showResult && (
-                            <button
-                                onClick={() => setShowPoolList(!showPoolList)}
-                                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-xs text-white transition-colors"
-                            >
-                                {showPoolList ? "戻る" : "提供割合"}
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => {
+                                        if (showHistory) {
+                                            setShowHistory(false);
+                                        } else {
+                                            fetchHistory();
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-xs text-white transition-colors"
+                                >
+                                    {showHistory ? "戻る" : "履歴"}
+                                </button>
+                                <button
+                                    onClick={() => setShowPoolList(!showPoolList)}
+                                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-xs text-white transition-colors"
+                                >
+                                    {showPoolList ? "戻る" : "提供割合"}
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={onClose}
@@ -129,7 +159,56 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
 
                 {/* コンテンツ */}
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
-                    {showPoolList ? (
+                    {showHistory ? (
+                        // 履歴リスト
+                        <div className="space-y-6">
+                            <h3 className="text-xl font-bold text-white text-center mb-6">
+                                📜 ガチャ履歴 (直近50件)
+                            </h3>
+                            <div className="space-y-2">
+                                {history.map((record) => {
+                                    const item = pool.items.find((i) => i.id === record.itemId);
+                                    const date = new Date(record.createdAt).toLocaleString("ja-JP");
+                                    const rarityConfig = RARITY_CONFIG[record.rarity as keyof typeof RARITY_CONFIG];
+
+                                    return (
+                                        <div key={record.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">{item?.icon || "❓"}</span>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-white text-sm">
+                                                            {item?.name || record.itemId}
+                                                        </span>
+                                                        <span
+                                                            className="text-xs px-1.5 py-0.5 rounded border"
+                                                            style={{
+                                                                color: rarityConfig?.color,
+                                                                borderColor: rarityConfig?.color,
+                                                                backgroundColor: `${rarityConfig?.color}20`
+                                                            }}
+                                                        >
+                                                            {record.rarity}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-white/40">{date}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {history.length === 0 && (
+                                    <p className="text-center text-white/50 py-8">履歴がありません</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setShowHistory(false)}
+                                className="w-full mt-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-colors"
+                            >
+                                戻る
+                            </button>
+                        </div>
+                    ) : showPoolList ? (
                         // 提供割合リスト
                         <div className="space-y-6">
                             <h3 className="text-xl font-bold text-white text-center mb-6">

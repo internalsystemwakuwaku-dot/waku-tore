@@ -873,10 +873,11 @@ export async function pullGacha(
     }
 }
 
-export async function getGachaHistory(limit: number = 50): Promise<GachaRecord[]> {
+export async function getGachaHistory(userId: string, limit: number = 50): Promise<GachaRecord[]> {
     const records = await db
         .select()
         .from(gachaRecords)
+        .where(eq(gachaRecords.userId, userId))
         .orderBy(desc(gachaRecords.createdAt))
         .limit(limit);
 
