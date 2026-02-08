@@ -37,7 +37,7 @@ export function DescriptionSidebar() {
         if (!rawDesc) {
             return (
                 <span className="text-gray-400 italic">
-                    (\u8aac\u660e\u306f\u3042\u308a\u307e\u305b\u3093)
+                    (説明はありません)
                 </span>
             );
         }
@@ -87,7 +87,7 @@ export function DescriptionSidebar() {
                 <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm z-10">
                     <div className="flex items-center gap-2 font-bold text-gray-700 text-lg">
                         <span className="material-icons text-blue-600">description</span>
-                        <span>\u8aac\u660e\u8a73\u7d30</span>
+                        <span>説明詳細</span>
                     </div>
                     <button
                         onClick={closeSidebar}
@@ -101,7 +101,7 @@ export function DescriptionSidebar() {
                     <div className="relative">
                         <input
                             type="text"
-                            placeholder="\u5e97\u8217\u540d\u3067\u691c\u7d22..."
+                            placeholder="店舗名で検索..."
                             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             value={searchQuery}
                             onChange={(e) => setFilter("search", e.target.value)}
@@ -202,7 +202,7 @@ export function DescriptionSidebar() {
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-full text-gray-400">
-                                {"\u691c\u7d22\u7d50\u679c\u304c\u3042\u308a\u307e\u305b\u3093"}
+                                {"検索結果がありません"}
                             </div>
                         )
                     ) : card ? (
@@ -219,13 +219,13 @@ export function DescriptionSidebar() {
                                     className="text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1 inline-flex"
                                 >
                                     <span className="material-icons text-sm">open_in_new</span>
-                                    Trello\u3067\u958b\u304f
+                                    Trelloで開く
                                 </a>
                             </div>
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-400">
-                            {"\u691c\u7d22\u7d50\u679c\u304b\u3089\u30ab\u30fc\u30c9\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044"}
+                            {"検索結果からカードを選択してください"}
                         </div>
                     )}
                 </div>
