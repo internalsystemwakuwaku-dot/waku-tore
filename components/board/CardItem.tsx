@@ -235,19 +235,19 @@ export function CardItem({ card, hasOverdueMemo: propHasOverdue, disabled }: Car
                         onClick={(e) => { e.stopPropagation(); setViewingDescriptionCard(card.id); }}
                         className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
                     >
-                        ????
+                        {"\u8aac\u660e\u8a73\u7d30"}
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setEditingCard(card.id, "move"); }}
                         className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
                     >
-                        ??
+                        {"\u79fb\u52d5"}
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); setEditingCard(card.id); }}
                         className="flex-1 py-1 px-2 text-xs bg-gray-50 border border-gray-200 rounded text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center justify-center"
                     >
-                        ??
+                        {"\u8a2d\u5b9a"}
                     </button>
                 </div>
             </div>

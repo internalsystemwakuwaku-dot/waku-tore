@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useBoardStore } from "@/stores/boardStore";
 
 /**
@@ -9,9 +9,9 @@ import { useBoardStore } from "@/stores/boardStore";
  * ユーザー要望によりSankou-gasの挙動（プレーンテキスト+単純リンク化、検索機能付き）を再現
  */
 export function DescriptionSidebar() {
-    const { ui, data, setViewingDescriptionCard } = useBoardStore();
+    const { ui, data, filters, setViewingDescriptionCard } = useBoardStore();
     const cardId = ui.viewingDescriptionCardId;
-    const [searchQuery, setSearchQuery] = useState("");
+    const searchQuery = filters.search || "";
     const [searchResults, setSearchResults] = useState<any[]>([]);
 
     // 表示対象のカードID（検索結果から選択された場合はそちらを優先できるが、
@@ -81,7 +81,7 @@ export function DescriptionSidebar() {
         );
     };
 
-    if (!ui.viewingDescriptionCardId && !effectiveCardId) return null;
+    if (!ui.viewingDescriptionCardId && !effectiveCardId && !searchQuery.trim()) return null;
 
     return (
         <>
@@ -109,20 +109,18 @@ export function DescriptionSidebar() {
                             placeholder="店舗名で検索..."
                             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={() => {}}
+                            disabled
                         />
                         <span className="material-icons absolute left-2.5 top-2 text-gray-400 text-lg">search</span>
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-                            >
-                                <span className="material-icons text-lg">close</span>
-                            </button>
-                        )}
                     </div>
 
                     {/* 検索結果リスト */}
+                    {searchQuery.trim() && searchResults.length === 0 && (
+                        <div className="absolute left-0 right-0 mt-1 mx-3 bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs text-gray-500 z-20">
+                            {"\u691c\u7d22\u7d50\u679c\u304c\u3042\u308a\u307e\u305b\u3093"}
+                        </div>
+                    )}
                     {searchResults.length > 0 && (
                         <div className="absolute left-0 right-0 mt-1 mx-3 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto z-20">
                             {searchResults.map(resCard => (
@@ -131,7 +129,6 @@ export function DescriptionSidebar() {
                                     className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 text-sm"
                                     onClick={() => {
                                         setViewingDescriptionCard(resCard.id);
-                                        setSearchQuery(""); // 検索クリアして遷移
                                     }}
                                 >
                                     {resCard.name}
@@ -170,7 +167,7 @@ export function DescriptionSidebar() {
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-400">
-                            カードを選択してください
+                            {"\u691c\u7d22\u7d50\u679c\u304b\u3089\u30ab\u30fc\u30c9\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044"}
                         </div>
                     )}
                 </div>

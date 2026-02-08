@@ -8,7 +8,7 @@ import { useBoardStore } from "@/stores/boardStore";
  * GAS構成: 選択モード | 全解除/全ロック | 並び替え | 各担当フィルター | 列表示設定 | 検索 | 件数
  */
 export function FilterBar() {
-    const { data, filters, setFilter, resetFilters, getFilteredCards, ui, toggleBulkMode, toggleListVisibility, setViewingDescriptionCard } = useBoardStore();
+    const { data, filters, setFilter, resetFilters, getFilteredCards, ui, toggleBulkMode, toggleListVisibility } = useBoardStore();
     const [showColumnMenu, setShowColumnMenu] = useState(false);
 
     if (!data) return null;
@@ -232,17 +232,7 @@ export function FilterBar() {
                 <input
                     type="text"
                     value={filters.search}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        setFilter("search", value);
-                        const query = value.trim().toLowerCase();
-                        if (!data || !query) {
-                            setViewingDescriptionCard(null);
-                            return;
-                        }
-                        const match = data.cards.find((c) => (c.name || "").toLowerCase().includes(query));
-                        setViewingDescriptionCard(match ? match.id : null);
-                    }}
+                    onChange={(e) => setFilter("search", e.target.value)}
                     placeholder="店舗名で検索..."
                     className="text-xs bg-white border border-gray-300 rounded px-2 py-1 pr-6 w-[140px] focus:outline-none focus:border-blue-500"
                 />
