@@ -26,6 +26,7 @@ import { getGachaDiscountRate, getGachaRerolls, pickBetterGachaItem } from "@/li
 import { transactMoney, earnXp, getGameData } from "./game";
 
 const RACE_SCHEDULE = [
+    { h: 1, m: 10 }, { h: 2, m: 0 },
     { h: 9, m: 55 }, { h: 10, m: 55 }, { h: 11, m: 55 }, { h: 12, m: 30 },
     { h: 13, m: 55 }, { h: 14, m: 55 }, { h: 15, m: 55 }, { h: 16, m: 55 },
     { h: 17, m: 55 }, { h: 21, m: 30 }, { h: 23, m: 30 }, { h: 23, m: 40 },
