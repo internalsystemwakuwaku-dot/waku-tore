@@ -959,7 +959,7 @@ async function applyGachaItemEffect(userId: string, item: GachaItem): Promise<vo
         }
     }
 
-    const inventoryPatterns = ["theme", "booster", "decoration", "special", "ticket"];
+    const inventoryPatterns = ["theme", "booster", "decoration", "special", "ticket", "facility"];
     const isInventoryItem = inventoryPatterns.some(pattern => item.id.toLowerCase().includes(pattern));
 
     if (isInventoryItem && !item.id.includes("coin") && !item.id.includes("xp")) {

@@ -19,6 +19,7 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
     const { data, setData } = useGameStore();
     const [results, setResults] = useState<GachaResult[]>([]);
     const [showResult, setShowResult] = useState(false);
+    const [showPoolList, setShowPoolList] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [nowMs, setNowMs] = useState(() => Date.now());
@@ -102,23 +103,93 @@ export function GachaModal({ isOpen, userId, onClose }: GachaModalProps) {
                     <div className="flex items-center gap-3">
                         <span className="text-3xl">🎰</span>
                         <div>
-                            <h2 className="text-lg font-bold text-white">{pool.name}</h2>
+                            <h2 className="text-lg font-bold text-white max-w-[200px] truncate">{pool.name}</h2>
                             <p className="text-sm text-white/70">
                                 💰 {data.money.toLocaleString()}
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
-                    >
-                        ✕
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {!isRolling && !showResult && (
+                            <button
+                                onClick={() => setShowPoolList(!showPoolList)}
+                                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-xs text-white transition-colors"
+                            >
+                                {showPoolList ? "戻る" : "提供割合"}
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
                 </div>
 
                 {/* コンテンツ */}
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
-                    {isRolling ? (
+                    {showPoolList ? (
+                        // 提供割合リスト
+                        <div className="space-y-6">
+                            <h3 className="text-xl font-bold text-white text-center mb-6">
+                                📊 提供割合一覧
+                            </h3>
+                            {["UR", "SSR", "SR", "R", "N"].map((rarity) => {
+                                const items = pool.items.filter((i) => i.rarity === rarity);
+                                if (items.length === 0) return null;
+                                const config = RARITY_CONFIG[rarity as keyof typeof RARITY_CONFIG];
+                                return (
+                                    <div key={rarity} className="space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                            <span
+                                                className="px-2 py-0.5 rounded text-xs font-bold"
+                                                style={{
+                                                    backgroundColor: `${config.color}20`,
+                                                    color: config.color,
+                                                    border: `1px solid ${config.color}`,
+                                                }}
+                                            >
+                                                {rarity}
+                                            </span>
+                                            <span className="text-white/60 text-sm">
+                                                合計期待値: {items.reduce((sum, i) => sum + i.dropRate, 0).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {items.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                                                >
+                                                    <span className="text-2xl">{item.icon}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-baseline justify-between">
+                                                            <span className="font-bold text-white text-sm truncate">
+                                                                {item.name}
+                                                            </span>
+                                                            <span className="text-white/60 text-xs font-mono ml-2">
+                                                                {item.dropRate}%
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-white/40 truncate">
+                                                            {item.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <button
+                                onClick={() => setShowPoolList(false)}
+                                className="w-full mt-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-colors"
+                            >
+                                戻る
+                            </button>
+                        </div>
+                    ) : isRolling ? (
                         // ガチャ演出
                         <div className="text-center py-12">
                             <div className="text-8xl animate-bounce mb-4">🎰</div>
