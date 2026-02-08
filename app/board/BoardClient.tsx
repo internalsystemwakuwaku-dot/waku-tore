@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { BoardView } from "@/components/board/BoardView";
@@ -41,7 +41,7 @@ interface BoardClientProps {
 }
 
 /**
- * ボ�EドクライアンチE- GAS風ヘッダーチE��イン
+ * ボ�EドクライアンチE- GAS風ヘッダーチE��イン
  */
 export function BoardClient({ user }: BoardClientProps) {
     const { ui, toggleBulkMode, clearSelection, data, setEditingCard, setOverdueCardIds, setCurrentUserId, setHiddenListIds } = useBoardStore();
@@ -50,7 +50,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const { config, currentTheme } = useThemeStore();
     const isThemeHydratingRef = useRef(true);
     const getUserThemeKey = (userId: string) => `waku-tore-theme-user:${userId}`;
-    // ���[�J���L���b�V�����瑦�����f�i�����\���̂�����ጸ�j
+    // ���[�J���L���b�V�����瑦�����f�i�����\���̂�����ጸ�j
     useLayoutEffect(() => {
         if (!user?.id) return;
         const key = getUserThemeKey(user.id);
@@ -101,7 +101,7 @@ export function BoardClient({ user }: BoardClientProps) {
             });
         }
     }, [user?.id, setCurrentUserId, setHiddenListIds]);
-    // �e�[�}�ݒ�̕ύX�����[�U�[�ݒ�Ƃ��ĕۑ�
+    // �e�[�}�ݒ�̕ύX����[�U�[�ݒ�Ƃ��ĕۑ�
     useEffect(() => {
         if (!user?.id) return;
         if (isThemeHydratingRef.current) return;
@@ -132,7 +132,7 @@ export function BoardClient({ user }: BoardClientProps) {
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
-    // オートクリチE��ー等�Eタイマ�E
+    // オートクリチE��ー等�Eタイマ�E
     useEffect(() => {
         // 1秒ごとにゲームのtickを実衁E
         const timer = setInterval(() => {
@@ -165,11 +165,11 @@ export function BoardClient({ user }: BoardClientProps) {
 
         const timer = setInterval(autoSave, AUTO_SAVE_INTERVAL);
 
-        // ペ�Eジを離れる前にも保孁E
+        // ペ�Eジを離れる前にも保孁E
         const handleBeforeUnload = () => {
             const gameState = useGameStore.getState();
             if (gameState.isDirty && gameState.data.userId) {
-                // sendBeacon を使って非同期で保存（�Eージ遷移をブロチE��しなぁE��E
+                // sendBeacon を使って非同期で保存（�Eージ遷移をブロチE��しなぁE��E
                 navigator.sendBeacon(
                     "/api/game/save",
                     JSON.stringify({ userId: gameState.data.userId, data: gameState.data })
@@ -182,30 +182,30 @@ export function BoardClient({ user }: BoardClientProps) {
         return () => {
             clearInterval(timer);
             window.removeEventListener("beforeunload", handleBeforeUnload);
-            // クリーンアチE�E時にも保存を試みめE
+            // クリーンアチE�E時にも保存を試みめE
             autoSave();
         };
     }, []);
 
-    // M-14: 期限刁E��メモを定期チェチE��
+    // M-14: 期限刁E��メモを定期チェチE��
     useEffect(() => {
         const checkOverdue = async () => {
             const ids = await getOverdueMemoCardIds();
             setOverdueCardIds(ids);
         };
         checkOverdue();
-        const timer = setInterval(checkOverdue, 60000); // 1刁E��E
+        const timer = setInterval(checkOverdue, 60000); // 1刁E��E
         return () => clearInterval(timer);
     }, [setOverdueCardIds]);
 
-    // 編雁E��のカードを取征E
+    // 編雁E��のカードを取征E
     const editingCard = ui.editingCardId && data
         ? data.cards.find((c) => c.id === ui.editingCardId)
         : null;
 
     return (
         <div className={`min-h-screen flex flex-col ${config.bgType === "none" ? "bg-gray-100" : "bg-transparent"}`}>
-            {/* チE�Eマ背景 */}
+            {/* チE�Eマ背景 */}
             <ThemeBackground />
 
             {/* ヘッダー - GAS風 */}
@@ -216,7 +216,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* ロゴ */}
                         <Link href="/" className="flex items-center gap-2 text-gray-800 hover:text-blue-600 transition-colors">
                             <span className="text-2xl">🫡</span>
-                            <span className="text-lg font-bold">わく☁E��めE/span>
+                            <span className="text-lg font-bold">わく☁E��めE/span>
                             <span className="text-xs text-gray-400">v2.0</span>
                         </Link>
 
@@ -231,7 +231,7 @@ export function BoardClient({ user }: BoardClientProps) {
                             </svg>
                         </button>
 
-                        {/* ゲームスチE�Eタスバ�E */}
+                        {/* ゲームスチE�Eタスバ�E */}
                         <GameStatusBar
                             onOpenShop={() => setShowShopModal(true)}
                             onOpenRanking={() => setShowRankingModal(true)}
@@ -240,9 +240,9 @@ export function BoardClient({ user }: BoardClientProps) {
                         />
                     </div>
 
-                    {/* クイチE��アクション */}
+                    {/* クイチE��アクション */}
                     <div className="flex items-center gap-2">
-                        {/* 一括操作�Eタン */}
+                        {/* 一括操作�Eタン */}
                         <button
                             onClick={toggleBulkMode}
                             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1 ${ui.isBulkMode
@@ -270,17 +270,17 @@ export function BoardClient({ user }: BoardClientProps) {
                             </div>
                         )}
 
-                        {/* 区刁E��緁E*/}
+                        {/* 区刁E��緁E*/}
                         <div className="w-px h-6 bg-gray-200 mx-1" />
 
-                        {/* GAS風クイチE��フィルター */}
+                        {/* GAS風クイチE��フィルター */}
                         <QuickFilterButtons />
 
                         {/* リローチE*/}
                         <button
                             onClick={() => window.location.reload()}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="チE�Eタ再読込"
+                            title="チE�Eタ再読込"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path
@@ -301,16 +301,16 @@ export function BoardClient({ user }: BoardClientProps) {
                             📝
                         </button>
 
-                        {/* ダチE��ュボ�EチE*/}
+                        {/* ダッシュボード */}
                         <button
                             onClick={() => setShowDashboardModal(true)}
                             className="p-2 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-                            title="ダチE��ュボ�EチE
+                            title="ダッシュボード"
                         >
                             📊
                         </button>
 
-                        {/* ショチE�E */}
+                        {/* ショチE�E */}
 
                         {/* 競馬 */}
 
@@ -326,7 +326,7 @@ export function BoardClient({ user }: BoardClientProps) {
                         {/* 予定サイドバー */}
                         <ScheduleSidebar />
 
-                        {/* 設定�Eタン */}
+                        {/* 設定�Eタン */}
                         <button
                             onClick={() => setShowSettingsModal(true)}
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
@@ -334,10 +334,10 @@ export function BoardClient({ user }: BoardClientProps) {
                             ⚙︁E設宁E
                         </button>
 
-                        {/* 区刁E��緁E*/}
+                        {/* 区刁E��緁E*/}
                         <div className="w-px h-6 bg-gray-200 mx-2" />
 
-                        {/* ユーザー惁E�� */}
+                        {/* ユーザー惁E�� */}
                         <div className="flex items-center gap-2 text-gray-700">
                             <span className="text-sm font-medium">{user.name || user.email}</span>
                         </div>
@@ -355,7 +355,7 @@ export function BoardClient({ user }: BoardClientProps) {
                     </div>
                 </div>
 
-                {/* フィルターバ�E - 折りたたみ可能 */}
+                {/* フィルターバ�E - 折りたたみ可能 */}
                 {!headerCollapsed && (
                     <div className="border-t border-gray-100 bg-gray-50">
                         <div className="max-w-[1920px] mx-auto px-4 py-2">
@@ -365,7 +365,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 )}
             </header>
 
-            {/* メインコンチE��チE*/}
+            {/* メインコンチE��チE*/}
             <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto px-4 py-4 overflow-hidden">
                 <BoardView user={user} />
             </main>
@@ -373,7 +373,7 @@ export function BoardClient({ user }: BoardClientProps) {
             {/* Description Sidebar (M-XX) */}
             <DescriptionSidebar />
 
-            {/* カード編雁E��ーダル */}
+            {/* カード編雁E��ーダル */}
             {editingCard && (
                 <CardModal
                     card={editingCard}
@@ -403,16 +403,16 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowOmikujiModal(false)}
             />
 
-            {/* レベルアチE�E演�E */}
+            {/* レベルアチE�E演�E */}
             <LevelUpModal />
 
             {/* BGMプレイヤー */}
             <BgmPlayer />
 
-            {/* ト�Eスト通知 */}
+            {/* ト�Eスト通知 */}
             <ToastContainer />
 
-            {/* 一括拁E��老E��定モーダル */}
+            {/* 一括拁E��老E��定モーダル */}
             <BulkAssignModal
                 isOpen={showBulkAssignModal}
                 onClose={() => setShowBulkAssignModal(false)}
@@ -424,7 +424,7 @@ export function BoardClient({ user }: BoardClientProps) {
                 onClose={() => setShowBulkMoveModal(false)}
             />
 
-            {/* 一括アクションバ�E */}
+            {/* 一括アクションバ�E */}
             <BulkActionBar
                 onOpenBulkAssign={() => setShowBulkAssignModal(true)}
                 onOpenBulkMove={() => setShowBulkMoveModal(true)}
@@ -439,13 +439,13 @@ export function BoardClient({ user }: BoardClientProps) {
                 />
             )}
 
-            {/* ダチE��ュボ�Eドモーダル */}
+            {/* ダチE��ュボ�Eドモーダル */}
             <DashboardModal
                 isOpen={showDashboardModal}
                 onClose={() => setShowDashboardModal(false)}
             />
 
-            {/* ショチE�Eモーダル */}
+            {/* ショチE�Eモーダル */}
             <ShopModal
                 isOpen={showShopModal}
                 onClose={() => setShowShopModal(false)}
