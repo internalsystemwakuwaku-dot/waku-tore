@@ -9,9 +9,9 @@ import { useBoardStore } from "@/stores/boardStore";
  * ユーザー要望によりSankou-gasの挙動（プレーンテキスト+単純リンク化、検索機能付き）を再現
  */
 export function DescriptionSidebar() {
-    const { ui, data, filters, setViewingDescriptionCard } = useBoardStore();
+    const { ui, data, setViewingDescriptionCard } = useBoardStore();
     const cardId = ui.viewingDescriptionCardId;
-    const searchQuery = filters.search || "";
+    const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
 
     // 表示対象のカードID（検索結果から選択された場合はそちらを優先できるが、
@@ -81,6 +81,11 @@ export function DescriptionSidebar() {
         );
     };
 
+    const closeSidebar = () => {
+        setViewingDescriptionCard(null);
+        setSearchQuery("");
+    };
+
     if (!ui.viewingDescriptionCardId && !effectiveCardId && !searchQuery.trim()) return null;
 
     return (
@@ -94,7 +99,7 @@ export function DescriptionSidebar() {
                         <span>説明詳細</span>
                     </div>
                     <button
-                        onClick={() => setViewingDescriptionCard(null)}
+                        onClick={closeSidebar}
                         className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                     >
                         <span className="material-icons">close</span>
@@ -109,10 +114,23 @@ export function DescriptionSidebar() {
                             placeholder="店舗名で検索..."
                             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             value={searchQuery}
-                            onChange={() => {}}
-                            disabled
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <span className="material-icons absolute left-2.5 top-2 text-gray-400 text-lg">search</span>
+                        <span className="absolute left-2.5 top-2 text-gray-400">
+                            <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <circle cx="11" cy="11" r="7" />
+                                <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                            </svg>
+                        </span>
                     </div>
 
                     {/* 検索結果リスト */}
@@ -129,6 +147,7 @@ export function DescriptionSidebar() {
                                     className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 text-sm"
                                     onClick={() => {
                                         setViewingDescriptionCard(resCard.id);
+                                        setSearchQuery("");
                                     }}
                                 >
                                     {resCard.name}
@@ -177,7 +196,7 @@ export function DescriptionSidebar() {
             {ui.viewingDescriptionCardId && (
                 <div
                     className="fixed inset-0 bg-black/20 z-40"
-                    onClick={() => setViewingDescriptionCard(null)}
+                    onClick={closeSidebar}
                 />
             )}
         </>
