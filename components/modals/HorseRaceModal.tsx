@@ -330,6 +330,9 @@ export function HorseRaceModal({ isOpen, onClose }: HorseRaceModalProps) {
             }, 3000);
         } else if (phase === "result") {
             stopBgm();
+            // Prevent spamming fanfare if this effect runs multiple times
+            // Logic handled by only calling if we transitioned to result?
+            // Better to rely on stable playSe, but also adding safe-guard.
             playSe("fanfare");
             (async () => {
                 try {

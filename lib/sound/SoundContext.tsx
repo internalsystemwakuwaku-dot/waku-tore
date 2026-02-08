@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useGameStore } from "@/stores/gameStore";
 
 type SoundType = "click" | "decide" | "cancel" | "popup" | "coin" | "levelUp" | "gacha" | "fanfare";
@@ -34,57 +34,59 @@ const BGM_FILES: Record<BgmType, string> = {
 };
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
-    const { data } = useGameStore();
+    // Optimization: Select only settings to avoid re-renders on other data changes (like money/xp)
+    const settings = useGameStore(state => state.data.settings);
     const bgmRef = useRef<HTMLAudioElement | null>(null);
     const [currentBgm, setCurrentBgm] = useState<BgmType | null>(null);
 
-    const playSe = (type: SoundType) => {
-        if (!data.settings.enableNotifications) return; // Using enableNotifications as a proxy for master mute for now if generic mute doesn't exist? 
-        // Actually GameSettings has seVolume.
+    const playSe = useCallback((type: SoundType) => {
+        if (!settings?.enableNotifications) return;
 
         try {
             const audio = new Audio(SOUND_FILES[type]);
-            audio.volume = data.settings.seVolume;
+            audio.volume = settings.seVolume ?? 0.5;
             audio.play().catch(() => { });
         } catch (e) {
-            // Audio play failed (interaction required etc)
+            // Audio play failed
         }
-    };
+    }, [settings?.enableNotifications, settings?.seVolume]);
 
-    const playBgm = (type: BgmType) => {
-        if (currentBgm === type) return;
+    const playBgm = useCallback((type: BgmType) => {
+        setCurrentBgm(prev => {
+            if (prev === type) return prev;
 
-        if (bgmRef.current) {
-            bgmRef.current.pause();
-            bgmRef.current = null;
-        }
+            if (bgmRef.current) {
+                bgmRef.current.pause();
+                bgmRef.current = null;
+            }
 
-        try {
-            const audio = new Audio(BGM_FILES[type]);
-            audio.volume = data.settings.bgmVolume;
-            audio.loop = true;
-            audio.play().catch(() => { });
-            bgmRef.current = audio;
-            setCurrentBgm(type);
-        } catch (e) {
-            // Autoplay policy
-        }
-    };
+            try {
+                const audio = new Audio(BGM_FILES[type]);
+                audio.volume = settings?.bgmVolume ?? 0.5;
+                audio.loop = true;
+                audio.play().catch(() => { });
+                bgmRef.current = audio;
+            } catch (e) {
+                // Autoplay policy
+            }
+            return type;
+        });
+    }, [settings?.bgmVolume]);
 
-    const stopBgm = () => {
+    const stopBgm = useCallback(() => {
         if (bgmRef.current) {
             bgmRef.current.pause();
             bgmRef.current = null;
             setCurrentBgm(null);
         }
-    };
+    }, []);
 
     // Update volume if playing
     useEffect(() => {
         if (bgmRef.current) {
-            bgmRef.current.volume = data.settings.bgmVolume;
+            bgmRef.current.volume = settings?.bgmVolume ?? 0.5;
         }
-    }, [data.settings.bgmVolume]);
+    }, [settings?.bgmVolume]);
 
     return (
         <SoundContext.Provider value={{ playSe, playBgm, stopBgm }}>
